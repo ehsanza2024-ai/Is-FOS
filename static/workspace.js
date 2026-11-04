@@ -296,3 +296,33 @@ document.addEventListener("click", async (e) => {
     toast(error.message);
   }
 });
+
+
+function movementClass(r) {
+  if (r.deposit && BigInt(r.deposit) > 0n) return "row-deposit";
+  const op = r.operation || r.kind || "";
+  if (/انتقال|سورتینگ|سردخانه/.test(op)) return "row-transfer";
+  if (/سبد/.test(op)) return "row-basket";
+  if (/مرجوعی|برگشت/.test(op)) return "row-return";
+  if (/خرید|^ورود/.test(op)) return "row-in";
+  if (/فروش|^خروج|ضایعات/.test(op)) return "row-out";
+  return "";
+}
+let bankReviewPageNumber = 1;
+function bankReviewPage() {
+  const all = S.BankStatements || [], query = search.toLocaleLowerCase();
+  const records = all.filter(r => !query || JSON.stringify(r).toLocaleLowerCase().includes(query));
+  const size = 50, pages = Math.max(1, Math.ceil(records.length / size));
+  bankReviewPageNumber = Math.min(bankReviewPageNumber, pages);
+  const visible = records.slice((bankReviewPageNumber - 1) * size, bankReviewPageNumber * size);
+  $("#pagecontent").innerHTML = `<section class="panel fullpanel"><div class="toolbar"><input id="bank-review-search" placeholder="بانک، نام، شرح، وضعیت…" value="${esc(search)}"><strong>${fa(all.length)} ردیف صورت‌حساب</strong><span class="badge">${fa(all.filter(r => r.event_id).length)} متصل به سند</span><span>واریز: طوسی · برداشت: بدون زمینه</span></div><div class="tablewrap">${table(["تاریخ","بانک","مرجع","واریز ریال","برداشت ریال","شخص","عملیات","وضعیت","تطبیق"],visible.map(r => `<tr class="${movementClass(r)}"><td>${fmtDate(r.date)}</td><td>${esc(r.bank)}</td><td>${esc(r.reference)}</td><td>${money(r.deposit || 0)}</td><td>${money(r.withdrawal || 0)}</td><td>${esc(r.party || "تعیین نشده")}</td><td>${esc(r.kind)}</td><td title="${esc([r.issues,r.correction].filter(Boolean).join(" | "))}">${badge(r.status)}</td><td>${r.event_id || r.duplicate_of ? "—" : `<button class="btn" data-bank-resolve="${esc(r.id)}">بررسی و ثبت</button>`}</td></tr>`).join(""))}</div><div class="pagination"><span>${fa(bankReviewPageNumber)} / ${fa(pages)}</span><button class="btn" data-bank-prev>قبلی</button><button class="btn" data-bank-next>بعدی</button></div></section>`;
+  $("#bank-review-search").oninput = e => {search=e.target.value; bankReviewPageNumber=1; bankReviewPage(); const input=$("#bank-review-search");input.focus();input.setSelectionRange(search.length,search.length);};
+  $("[data-bank-prev]").onclick=()=>{bankReviewPageNumber=Math.max(1,bankReviewPageNumber-1);bankReviewPage();};
+  $("[data-bank-next]").onclick=()=>{bankReviewPageNumber=Math.min(pages,bankReviewPageNumber+1);bankReviewPage();};
+  document.querySelectorAll("[data-bank-resolve]").forEach(b=>b.onclick=()=>bankResolve(b.dataset.bankResolve));
+}
+function bankResolve(id) {
+  const r=S.BankStatements.find(x=>x.id===id);
+  const counterparts=(S.BankStatements||[]).filter(x=>!x.event_id && !x.duplicate_of && x.bank!==r.bank && ((Number(r.deposit)>0 && String(x.withdrawal)===String(r.deposit)) || (Number(r.withdrawal)>0 && String(x.deposit)===String(r.withdrawal))));
+  openModal("تطبیق و اتصال صورت‌حساب", `<div class="field full"><p>${esc(r.bank)} · ${fmtDate(r.date)} · ${money(r.deposit || r.withdrawal)} ریال</p><p>${esc(r.issues || "مسیر مبلغ و مانده تطبیق شده")}</p><p>${esc(r.correction)}</p><details><summary>اصل ردیف منبع ـ ${esc(r.source_file)} / ${fa(r.source_row)}</summary><p>${esc(r.raw_json)}</p></details></div>` + field(["party","طرف حساب","ref","Parties"],r.party||"") + field(["kind","عملیات","select",[...new Set([...(S.Operations||[]).filter(o=>o.active==="بله" && [o.debit,o.credit].filter(x=>x==="بانک").length===1).map(o=>o.name),"انتقال بین بانک‌ها"])]], r.kind || (Number(r.deposit)>0?"دریافت":"پرداخت")) + field(["fee_amount","کارمزد همراه پرداخت (ریال)","number"],"0") + `<div class="field"><label>ردیف مقابل انتقال</label><select name="counterpart_id"><option value="">برای انتقال انتخاب شود</option>${counterparts.map(x=>`<option value="${esc(x.id)}">${esc(x.bank)} · ${fmtDate(x.date)} · ${money(x.deposit || x.withdrawal)}</option>`).join("")}</select></div><div class="field full"><label><input type="checkbox" name="confirm_anomaly">مسئولیت رفع ابهام‌های نمایش‌داده‌شده را با توضیح می‌پذیرم</label></div>`+field(["note","دلیل و شرح تطبیق"],"",true), data => api("/api/bank-statements/"+id+"/resolve","POST",{data:{...data,confirm_anomaly:data.confirm_anomaly==="on"},revision:S.revision}),"ثبت سند و اتصال به منبع");
+}

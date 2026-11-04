@@ -20,7 +20,7 @@ let catalog,
   report,
   health,
   tab = "overview",
-  unit = "IRR",
+  unit = "AUTO",
   currentPage = 1,
   generation = 0;
 const dataLabels = {
@@ -79,6 +79,8 @@ const tabs = {
   accounts: "مانده اشخاص",
   statement: "صورت‌حساب شخص",
   banks: "مانده بانک‌ها",
+  banksource: "صورت‌حساب‌های واردشده",
+  physical: "گردش فیزیکی و سبد امانی",
   unbilled: "رسیدهای فاکتورنشده",
   checks: "چک‌ها",
   stock: "موجودی",
@@ -88,17 +90,9 @@ const tabs = {
   tables: "مرکز داده",
   help: "راهنمای اتصال",
 };
-function money(value) {
-  let n = BigInt(value || "0");
-  const sign = n < 0n ? "−" : "";
-  if (n < 0n) n = -n;
-  return (
-    sign +
-    new Intl.NumberFormat("fa-IR").format(unit === "IRR" ? n : n / 10n) +
-    (unit === "IRT" && n % 10n ? "٫" + fa(n % 10n) : "")
-  );
-}
-const unitName = () => (unit === "IRR" ? "ریال" : "تومان");
+function currencyView(){return MazMoney.view(unit,report?.settings,report?.currencies);}
+const money=v=>MazMoney.format(v,unit,report?.settings,report?.currencies);
+const unitName=()=>currencyView().name;
 const date = (v) => {
   let s = String(v || "");
   return s.length === 8
@@ -113,7 +107,7 @@ function toast(t) {
 async function api(path, method = "GET", data) {
   if (portable) {
     if (method !== "GET") throw Error("فایل گزارش فقط‌خواندنی است");
-    if (path === "/api/health") return { ok: true, version: "0.7.0" };
+    if (path === "/api/health") return { ok: true, version: "0.8.0" };
     if (path === "/api/catalog")
       return {
         user: { name: "مشاهده‌گر خصوصی" },
@@ -231,7 +225,7 @@ function table(headers, records, columns, paginate = true) {
     : records;
   if (!records.length)
     return '<div class="empty">برای این فیلتر رکوردی ثبت نشده است.</div>';
-  return `<div class="panel"><div class="report-table"><table><thead><tr>${headers.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${visible.map((r) => `<tr>${columns.map((c) => `<td>${typeof c === "function" ? c(r) : esc(r[c])}</td>`).join("")}</tr>`).join("")}</tbody></table></div>${paginate ? `<div class="pagination"><span>${fa(records.length)} ردیف · صفحه ${fa(currentPage)} از ${fa(total)}</span><div class="buttons"><button class="btn" data-action="prev" ${currentPage <= 1 ? "disabled" : ""}>قبلی</button><button class="btn" data-action="next" ${currentPage >= total ? "disabled" : ""}>بعدی</button></div></div>` : ""}</div>`;
+  return `<div class="panel"><div class="report-table"><table><thead><tr>${headers.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${visible.map((r) => `<tr class="${reportRowClass(r)}">${columns.map((c) => `<td>${typeof c === "function" ? c(r) : esc(r[c])}</td>`).join("")}</tr>`).join("")}</tbody></table></div>${paginate ? `<div class="pagination"><span>${fa(records.length)} ردیف · صفحه ${fa(currentPage)} از ${fa(total)}</span><div class="buttons"><button class="btn" data-action="prev" ${currentPage <= 1 ? "disabled" : ""}>قبلی</button><button class="btn" data-action="next" ${currentPage >= total ? "disabled" : ""}>بعدی</button></div></div>` : ""}</div>`;
 }
 function trend() {
   const totals = new Map();
@@ -417,6 +411,8 @@ function contents(print = false) {
       )
     );
   }
+  if (tab === "banksource") return '<div class="report-summary">'+esc(report.bank_statements?.note || "")+'</div>'+table(["تاریخ","بانک","واریز","برداشت","شخص","عملیات","وضعیت","اصلاح"],report.bank_statements?.rows||[],[r=>date(r.date),"bank",r=>money(r.deposit||0),r=>money(r.withdrawal||0),"party","kind","status","correction"],pages);
+  if (tab === "physical") return '<div class="report-summary">'+esc(report.physical?.note || "")+'</div>'+table(["شخص","محصول","نوع سبد","انبار","کیلوگرم"],report.physical?.balances||[],["party","product","basket","store",r=>fa(r.qty)],pages)+'<h3>سبد امانی؛ مثبت یعنی نزد طرف حساب</h3>'+table(["شخص","نوع سبد","تعداد"],report.physical?.custody||[],["party","basket",r=>fa(r.count)],false);
   if (tab === "unbilled")
     return (
       '<div class="report-summary">قبض‌های فاقد سند خرید/فروش متصل؛ این عنوان لزوماً به معنی صادرنشدن فاکتور کاغذی نیست. سند برگشت‌خورده مصرف نهایی قبض محسوب نمی‌شود.</div>' +
@@ -548,7 +544,8 @@ root.addEventListener("click", async (e) => {
     } else if (a === "weather") weatherSettings();
     else if (a === "print") print();
     else if (a === "unit") {
-      unit = unit === "IRR" ? "IRT" : "IRR";
+      const choices=MazMoney.units(report?.currencies);
+      unit=choices[(choices.indexOf(unit)+1)%choices.length];
       b.textContent = unitName();
       render();
     } else if (a === "prev") {
@@ -681,3 +678,5 @@ function renderWeather() {
   host.className = "weather " + (rainy ? "rainy" : cloudy ? "cloudy" : "sunny");
   host.innerHTML = `<span class="weather-orbit">${rainy ? "☂" : cloudy ? "☁" : "☀"}</span><span>${esc(weatherLocation.label)}</span><strong>${fa(weatherState.temperature_2m)}° <small>${rainy ? "بارش" : cloudy ? "ابری / مه" : "آسمان صاف"}</small></strong><small>باد ${fa(weatherState.wind_speed_10m)} ${esc(weatherState.units.wind_speed_10m)} · ${esc(weatherState.time)}</small><button class="btn" data-action="weather">تغییر منطقه</button><small>Open-Meteo · وضعیت دریافتی، نه پیش‌بینی ساختگی</small>`;
 }
+
+function reportRowClass(r) { if (r.deposit && BigInt(r.deposit)>0n) return "row-deposit";const op=r.operation||"";return /انتقال|سورتینگ|سردخانه/.test(op)?"row-transfer":/سبد/.test(op)?"row-basket":/مرجوعی|برگشت/.test(op)?"row-return":/خرید|^ورود/.test(op)?"row-in":/فروش|^خروج/.test(op)?"row-out":"";}

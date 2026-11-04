@@ -70,3 +70,6 @@ def install(w):
         ('اختلاف تراز (باید صفر باشد)','=B3-B4-B5-B6')])
     for n,r in enumerate(rows(w,'Guide'),3):
         if r['topic']=='کنترل':put(w,'Guide',{'instruction':'اکسل مستقل نقش و قفل اجرایی ندارد. خرید هزینه دوره نیست. سود/زیان و تراز کل دفتر در ProfitLoss و BalanceSheet است. مدل اصیل/تقسیم سود فقط با قرارداد تأییدشده؛ تخصیص و قفل دوره را از مرکز انجام دهید. همزمان با سرویس، Excel را ویرایش نکنید.'},n)
+
+    from app.integration import install as install_movements
+    install_movements(w)

@@ -12,16 +12,25 @@ from app.domain import ACCOUNTS, KINDS
 
 CAPACITY=1000
 SCHEMAS={
- 'Parties':['id','name','role','active','code','group','note'],
+ 'Parties':['id','name','role','active','code','group','note','nature','subgroup','accounting_group','audit_group'],
  'Baskets':['id','name','tare'],
- 'Products':['id','name'], 'Stores':['id','name'], 'Banks':['id','name'],
+ 'Products':['id','name','group','note'], 'Stores':['id','name'], 'Banks':['id','name'],
  'Deals':['id','name','partner','share','start','end','product','status','policy','note'],
  'Groups':['id','name','parent','category','note'],
  'Accounts':['id','name','category','group','active','note'],
  'Operations':['id','name','debit','credit','active','note'],
  'Info':['key','value','note'],
  'Events':['id','date','kind','party','product','store','bank','qty','rate','input_amount','cost','status','reference','note','source_weigh','deal','share','sign','reversal_of','effective_amount','debit_account','credit_account','party_id','product_id','store_id','bank_id','deal_id','signed_qty','debit_snapshot','credit_snapshot','period_start','period_end'],
- 'Weigh':['id','date','operation','party','product','store','basket','count','gross','tare','loss','waste','net','reference','note','deal','share','party_id','product_id','basket_id'],
+ 'Weigh':['id','date','operation','party','product','store','basket','count','gross','tare','loss','waste','net','reference','note','deal','share','party_id','product_id','basket_id','destination','basket_out','basket_return','round_base','stock_sign','custody_sign','source_sha','source_row','source_file'],
+ 'PhysicalStock':['id','party','product','store','basket','deal','qty'],
+ 'BasketCustody':['id','party','basket','balance'],
+ 'Currencies':['id','name','rial_per_unit'],
+ 'Settings':['key','value','note'],
+ 'WeighOps':['id','name','stock_sign','custody_sign','route','mode'],
+ 'BankStatements':['id','date','bank','time','reference','deposit','withdrawal','balance','party','party_code','kind','status','event_id','duplicate_of','source_file','source_sha','source_row','raw_json','issues','correction'],
+ 'SourceRows':['id','source_file','source_sha','source_sheet','source_row','payload','status','reason'],
+ 'Dimensions':['id','name','kind','parent','note'],
+ 'ReferenceMap':['id','sheet','source_code','name','source_file','source_sha','source_row','note'],
  'Checks':['id','date','number','direction','party','bank','amount','due','state','reference','note'],
  'Imports':['id','created_at','digest','rows_json','errors_json','status'],
  'Audit':['id','timestamp','actor','action','entity','detail','previous_hash','hash'],
@@ -36,16 +45,18 @@ FA={'id':'شناسه داخلی','name':'نام قابل نمایش','role':'ن�
  'status':'وضعیت','reference':'شماره مرجع','note':'توضیحات','source_weigh':'شناسه باسکول منبع','deal':'قرارداد شراکت','share':'سهم ما (۰ تا ۱)',
  'sign':'ضریب سند','reversal_of':'برگشت سند','effective_amount':'مبلغ محاسبه‌شده (ریال)','debit_account':'حساب بدهکار','credit_account':'حساب بستانکار',
  'operation':'عملیات','basket':'نام نوع سبد','count':'تعداد سبد','gross':'وزن باسکول (کیلوگرم)','loss':'درصد افت','waste':'ضایعات (کیلوگرم)',
- 'net':'وزن خالص رند به ۵ کیلو','number':'شماره چک','direction':'جهت','amount':'مبلغ (ریال)','due':'سررسید شمسی','state':'چرخه چک',
+ 'net':'وزن خالص (طبق قاعده ردیف)','number':'شماره چک','direction':'جهت','amount':'مبلغ (ریال)','due':'سررسید شمسی','state':'چرخه چک',
+ 'destination':'انبار مقصد','basket_out':'سبد امانی تحویلی','basket_return':'سبد امانی برگشتی','round_base':'مبنای گردکردن؛ صفر = دقیق','deposit':'واریز ریال','withdrawal':'برداشت ریال','issues':'موارد نیازمند رسیدگی','correction':'اصلاح اثبات‌شده','source_file':'فایل منبع','source_row':'ردیف منبع','nature':'ماهیت شخص','subgroup':'زیرماهیت','accounting_group':'گروه حسابداری','audit_group':'گروه حسابرسی',
  'partner':'نام شریک','start':'شروع اعتبار','end':'پایان اعتبار','key':'تنظیم','value':'مقدار','topic':'موضوع','instruction':'راهنما',
  'source_id':'منبع سند','account':'حساب','debit':'بدهکار (ریال)','credit':'بستانکار (ریال)','category':'گروه حساب','balance':'مانده (ریال)'}
+FA.update({'rial_per_unit':'ریال معادل یک واحد ارز','group':'گروه','stock_sign':'ضریب گردش بار','custody_sign':'ضریب بدهی سبد','route':'مقصد لازم','mode':'ماهیت','source_sha':'SHA-256 منبع','source_sheet':'شیت منبع','raw_json':'اصل ردیف منبع (JSON)','payload':'اصل منبع (JSON)','event_id':'سند مالی متصل','duplicate_of':'ارجاع تکرار به','party_code':'کد شخص منبع','time':'زمان','source_code':'کد تعریف منبع','sheet':'شیت مرتبط','reason':'علت وضعیت','parent':'گروه والد','code':'کد مرجع'})
 REFS={'party':'Parties','basket':'Baskets','product':'Products','store':'Stores','bank':'Banks','deal':'Deals'}
 
 def indexed_rows(w,sheet):
     """Keep physical row addresses: filtering blank rows must not shift updates."""
     keys=SCHEMAS[sheet]
     for n,r in enumerate(w[sheet].iter_rows(min_row=3,values_only=True),3):
-        if r[0] is not None and not str(r[0]).startswith('=') and (sheet not in ['Parties','Baskets','Products','Stores','Banks','Deals','Events','Weigh','Checks'] or r[1] is not None):
+        if r[0] is not None and not str(r[0]).startswith('=') and (sheet not in ['Parties','Baskets','Products','Stores','Banks','Deals','Events','Weigh','Checks','Currencies'] or r[1] is not None):
             yield n,dict(zip(keys,r[:len(keys)]))
 
 def rows(w,sheet):
@@ -54,7 +65,7 @@ def rows(w,sheet):
 def put(w,sheet,record,row=None):
     s=w[sheet]
     if row is None:
-        row=next((r for r in range(3,CAPACITY+3) if s.cell(r,2 if sheet in ['Parties','Baskets','Products','Stores','Banks','Deals','Events','Weigh','Checks'] else 1).value is None),None)
+        row=next((r for r in range(3,CAPACITY+3) if s.cell(r,2 if sheet in ['Parties','Baskets','Products','Stores','Banks','Deals','Events','Weigh','Checks','Currencies'] else 1).value is None),None)
         if row is None:raise ValueError('ظرفیت هزار ردیف تکمیل شده؛ قبل از ادامه ظرفیت قالب را افزایش دهید')
     for k,v in record.items():
         if k not in SCHEMAS[sheet]:continue
@@ -137,10 +148,12 @@ def create(path:Path,demo=False):
     w['Events'].cell(1,28,'signed_qty');w['Events'].cell(2,28,'مقدار علامت‌دار');w['Events'].column_dimensions['AB'].hidden=True
     for r in range(3,CAPACITY+3):w['Events'].cell(r,28,f'=IF(B{r}="","",H{r}*IF(R{r}="",1,R{r}))')
     for r in range(3,CAPACITY+3):w['Stock'].cell(r,3,w['Stock'].cell(r,3).value.replace('$H$','$AB$'))
-    for sn in ['Parties','Baskets','Products','Stores','Banks','Deals','Events','Weigh','Checks']:
+    for sn in ['Parties','Baskets','Products','Stores','Banks','Deals','Events','Weigh','Checks','Currencies']:
         for r in range(3,CAPACITY+3):
             if w[sn].cell(r,1).value is None:w[sn].cell(r,1,f'{sn}-{r-2:06d}')
     from app.schema import install
     install(w)
+    from app.excel_design import apply as apply_design
+    apply_design(w)
     path.parent.mkdir(parents=True,exist_ok=True);w.save(path)
     return path

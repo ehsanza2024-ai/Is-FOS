@@ -10,8 +10,8 @@ def upgrade(root):
     store=Store(root,read_only=False)
     data=store.read()
     version=next((r['value'] for r in data['Info'] if r['key']=='schema_version'),None)
-    if version not in ['1.0','1.1']:raise ValueError('Unsupported canonical schema; never upgrade legacy workbooks here')
-    with store.edit('مدیر ارتقا','schema.upgrade.1.1',data['revision']) as w:install(w)
+    if version not in ['1.0','1.1','1.2']:raise ValueError('Unsupported canonical schema; never upgrade legacy workbooks here')
+    with store.edit('مدیر ارتقا','schema.upgrade.1.2',data['revision']) as w:install(w)
     return fingerprint(store.path)
 if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('--data',type=Path,required=True);a=p.parse_args();print(upgrade(a.data))

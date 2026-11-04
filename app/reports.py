@@ -45,11 +45,14 @@ def build_report(data,start=None,end=None,party=None):
     parties=[{'name':p['name'],'receivable':receivables[p['name']],'payable':payables[p['name']],'net':receivables[p['name']]-payables[p['name']]} for p in data['Parties'] if not party or p['name']==party]
     reversals={e.get('reversal_of') for e in all_asof if e.get('reversal_of')}
     used={e.get('source_weigh') for e in all_asof if e['kind'] in ['خرید','فروش'] and e['sign']==1 and e['id'] not in reversals}
-    pending=[{k:r.get(k) for k in ['id','date','operation','party','product','store','basket','net','reference','deal']} for r in data['Weigh'] if r['operation'] in ['ورود','خروج'] and r['id'] not in used and (not start or int(r['date'])>=start) and (not end or int(r['date'])<=end) and (not party or r['party']==party)]
+    pending=[{k:r.get(k) for k in ['id','date','operation','party','product','store','basket','net','reference','deal']} for r in data['Weigh'] if r['operation'] in ['ورود','خروج','خرید مرکبات','فروش','خرید شراکتی','فروش شراکتی'] and r['id'] not in used and (not start or int(r['date'])>=start) and (not end or int(r['date'])<=end) and (not party or r['party']==party)]
     earnings=-category('revenue')-category('expense')
     sheet={'assets':category('asset'),'liabilities':-category('liability'),'capital':-category('equity'),'retained_profit':earnings}
     sheet['difference']=sheet['assets']-sheet['liabilities']-sheet['capital']-earnings
+    from app.integration import physical,bank_rows_report
     return {
+        'settings':{x['key']:x.get('value') for x in data.get('Settings',[])},'currencies':data.get('Currencies',[]),
+        'physical':physical(data,start,end,party),'bank_statements':bank_rows_report(data,start,end,party),
         'revision':data['revision'],'generated_at':datetime.now(timezone.utc).isoformat(),'unit':'IRR',
         'filters':{'from':start,'to':end,'party':party or ''},
         'profit_loss':{'revenue':income,'cogs':byname['بهای تمام‌شده'],'operating_expense':byname['هزینه عملیاتی'],'wages':byname['هزینه دستمزد'],'expenses':expenses,'net_profit':income-expenses,'partner_profit_expense':byname.get('سهم سود شریک',0),'partner_loss_income':-byname.get('سهم زیان شریک',0)},

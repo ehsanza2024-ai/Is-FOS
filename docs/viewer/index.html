@@ -1908,7 +1908,11 @@ button {
     font-size: 9px;
   }
 }
+
+/* Low-chroma operational semantics; withdrawals deliberately keep their base background. */
+tr.row-deposit>td{background:#eef0f2!important}tr.row-in>td{background:#eaf4ed!important}tr.row-out>td{background:#edf3fa!important}tr.row-transfer>td{background:#f0edfa!important}tr.row-basket>td{background:#f2f4e8!important}tr.row-return>td{background:#fff4e4!important}
 </style>
+
 
 
   </head>
@@ -2039,6 +2043,35 @@ window.MazReport = {
     return r;
   },
 };
+</script><script>/* Display-only FX. Original amounts stay integer IRR; decimal rates are exact rationals. */
+"use strict";
+const MazMoney=(()=>{
+ function view(unit,settings={},currencies=[]){
+  if(Array.isArray(settings))settings=Object.fromEntries(settings.map(x=>[x.key,x.value]));
+  const selected=unit==='AUTO'?String(settings.report_currency||'IRR'):unit;
+  const c=currencies.find(x=>x.id===selected||x.name===selected);
+  if(['IRR','ریال'].includes(selected))return {name:'ریال',rate:'1',digits:0};
+  if(['IRT','تومان'].includes(selected))return {name:'تومان',rate:'10',digits:1};
+  const n=Number(settings.display_decimals??2),digits=Number.isInteger(n)&&n>=0&&n<=8?n:2;
+  return {name:c?.name||selected,rate:String(c?.rial_per_unit||''),digits};
+ }
+ function format(value,unit,settings,currencies){
+  const c=view(unit,settings,currencies),m=c.rate.match(/^(\d+)(?:\.(\d{1,8}))?$/);
+  if(!m)return '— (نرخ ثبت نشده)';
+  const fraction=m[2]||'',den=BigInt(m[1]+fraction),rateScale=10n**BigInt(fraction.length);
+  if(!den)return '— (نرخ نامعتبر)';
+  try{
+   let n=BigInt(value||0),negative=n<0n;if(negative)n=-n;
+   const scale=10n**BigInt(c.digits),numerator=n*rateScale*scale;
+   let rounded=numerator/den;if((numerator%den)*2n>=den)rounded++;
+   const f=new Intl.NumberFormat('fa-IR',{useGrouping:false});
+   return (negative&&rounded?'−':'')+new Intl.NumberFormat('fa-IR').format(rounded/scale)+(c.digits?'٫'+f.format(rounded%scale).padStart(c.digits,'۰'):'');
+  }catch{return '—';}
+ }
+ function units(currencies=[]){return [...new Set(['AUTO','IRR','IRT',...currencies.filter(x=>x.name).map(x=>x.id||x.name)])];}
+ return {view,format,units};
+})();
+if(typeof module!=='undefined')module.exports=MazMoney;
 </script><script>"use strict";
 const q = (s) => document.querySelector(s),
   root = q("#reportapp");
@@ -2061,7 +2094,7 @@ let catalog,
   report,
   health,
   tab = "overview",
-  unit = "IRR",
+  unit = "AUTO",
   currentPage = 1,
   generation = 0;
 const dataLabels = {
@@ -2120,6 +2153,8 @@ const tabs = {
   accounts: "مانده اشخاص",
   statement: "صورت‌حساب شخص",
   banks: "مانده بانک‌ها",
+  banksource: "صورت‌حساب‌های واردشده",
+  physical: "گردش فیزیکی و سبد امانی",
   unbilled: "رسیدهای فاکتورنشده",
   checks: "چک‌ها",
   stock: "موجودی",
@@ -2129,17 +2164,9 @@ const tabs = {
   tables: "مرکز داده",
   help: "راهنمای اتصال",
 };
-function money(value) {
-  let n = BigInt(value || "0");
-  const sign = n < 0n ? "−" : "";
-  if (n < 0n) n = -n;
-  return (
-    sign +
-    new Intl.NumberFormat("fa-IR").format(unit === "IRR" ? n : n / 10n) +
-    (unit === "IRT" && n % 10n ? "٫" + fa(n % 10n) : "")
-  );
-}
-const unitName = () => (unit === "IRR" ? "ریال" : "تومان");
+function currencyView(){return MazMoney.view(unit,report?.settings,report?.currencies);}
+const money=v=>MazMoney.format(v,unit,report?.settings,report?.currencies);
+const unitName=()=>currencyView().name;
 const date = (v) => {
   let s = String(v || "");
   return s.length === 8
@@ -2154,7 +2181,7 @@ function toast(t) {
 async function api(path, method = "GET", data) {
   if (portable) {
     if (method !== "GET") throw Error("فایل گزارش فقط‌خواندنی است");
-    if (path === "/api/health") return { ok: true, version: "0.7.0" };
+    if (path === "/api/health") return { ok: true, version: "0.8.0" };
     if (path === "/api/catalog")
       return {
         user: { name: "مشاهده‌گر خصوصی" },
@@ -2272,7 +2299,7 @@ function table(headers, records, columns, paginate = true) {
     : records;
   if (!records.length)
     return '<div class="empty">برای این فیلتر رکوردی ثبت نشده است.</div>';
-  return `<div class="panel"><div class="report-table"><table><thead><tr>${headers.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${visible.map((r) => `<tr>${columns.map((c) => `<td>${typeof c === "function" ? c(r) : esc(r[c])}</td>`).join("")}</tr>`).join("")}</tbody></table></div>${paginate ? `<div class="pagination"><span>${fa(records.length)} ردیف · صفحه ${fa(currentPage)} از ${fa(total)}</span><div class="buttons"><button class="btn" data-action="prev" ${currentPage <= 1 ? "disabled" : ""}>قبلی</button><button class="btn" data-action="next" ${currentPage >= total ? "disabled" : ""}>بعدی</button></div></div>` : ""}</div>`;
+  return `<div class="panel"><div class="report-table"><table><thead><tr>${headers.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${visible.map((r) => `<tr class="${reportRowClass(r)}">${columns.map((c) => `<td>${typeof c === "function" ? c(r) : esc(r[c])}</td>`).join("")}</tr>`).join("")}</tbody></table></div>${paginate ? `<div class="pagination"><span>${fa(records.length)} ردیف · صفحه ${fa(currentPage)} از ${fa(total)}</span><div class="buttons"><button class="btn" data-action="prev" ${currentPage <= 1 ? "disabled" : ""}>قبلی</button><button class="btn" data-action="next" ${currentPage >= total ? "disabled" : ""}>بعدی</button></div></div>` : ""}</div>`;
 }
 function trend() {
   const totals = new Map();
@@ -2458,6 +2485,8 @@ function contents(print = false) {
       )
     );
   }
+  if (tab === "banksource") return '<div class="report-summary">'+esc(report.bank_statements?.note || "")+'</div>'+table(["تاریخ","بانک","واریز","برداشت","شخص","عملیات","وضعیت","اصلاح"],report.bank_statements?.rows||[],[r=>date(r.date),"bank",r=>money(r.deposit||0),r=>money(r.withdrawal||0),"party","kind","status","correction"],pages);
+  if (tab === "physical") return '<div class="report-summary">'+esc(report.physical?.note || "")+'</div>'+table(["شخص","محصول","نوع سبد","انبار","کیلوگرم"],report.physical?.balances||[],["party","product","basket","store",r=>fa(r.qty)],pages)+'<h3>سبد امانی؛ مثبت یعنی نزد طرف حساب</h3>'+table(["شخص","نوع سبد","تعداد"],report.physical?.custody||[],["party","basket",r=>fa(r.count)],false);
   if (tab === "unbilled")
     return (
       '<div class="report-summary">قبض‌های فاقد سند خرید/فروش متصل؛ این عنوان لزوماً به معنی صادرنشدن فاکتور کاغذی نیست. سند برگشت‌خورده مصرف نهایی قبض محسوب نمی‌شود.</div>' +
@@ -2646,7 +2675,8 @@ root.addEventListener("click", async (e) => {
     } else if (a === "weather") weatherSettings();
     else if (a === "print") print();
     else if (a === "unit") {
-      unit = unit === "IRR" ? "IRT" : "IRR";
+      const choices=MazMoney.units(report?.currencies);
+      unit=choices[(choices.indexOf(unit)+1)%choices.length];
       b.textContent = unitName();
       render();
     } else if (a === "prev") {
@@ -2779,5 +2809,7 @@ function renderWeather() {
   host.className = "weather " + (rainy ? "rainy" : cloudy ? "cloudy" : "sunny");
   host.innerHTML = `<span class="weather-orbit">${rainy ? "☂" : cloudy ? "☁" : "☀"}</span><span>${esc(weatherLocation.label)}</span><strong>${fa(weatherState.temperature_2m)}° <small>${rainy ? "بارش" : cloudy ? "ابری / مه" : "آسمان صاف"}</small></strong><small>باد ${fa(weatherState.wind_speed_10m)} ${esc(weatherState.units.wind_speed_10m)} · ${esc(weatherState.time)}</small><button class="btn" data-action="weather">تغییر منطقه</button><small>Open-Meteo · وضعیت دریافتی، نه پیش‌بینی ساختگی</small>`;
 }
+
+function reportRowClass(r) { if (r.deposit && BigInt(r.deposit)>0n) return "row-deposit";const op=r.operation||"";return /انتقال|سورتینگ|سردخانه/.test(op)?"row-transfer":/سبد/.test(op)?"row-basket":/مرجوعی|برگشت/.test(op)?"row-return":/خرید|^ورود/.test(op)?"row-in":/فروش|^خروج/.test(op)?"row-out":"";}
 </script></body>
 </html>

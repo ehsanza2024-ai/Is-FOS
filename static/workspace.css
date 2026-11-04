@@ -225,3 +225,6 @@ textarea {
   height: 16px;
   accent-color: #3d6847;
 }
+
+/* Low-chroma operational semantics; withdrawals deliberately keep their base background. */
+tr.row-deposit>td{background:#eef0f2!important}tr.row-in>td{background:#eaf4ed!important}tr.row-out>td{background:#edf3fa!important}tr.row-transfer>td{background:#f0edfa!important}tr.row-basket>td{background:#f2f4e8!important}tr.row-return>td{background:#fff4e4!important}

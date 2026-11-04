@@ -59,7 +59,7 @@ let S = null,
   search = "",
   from = "",
   to = "",
-  unit = "IRR",
+  unit = "AUTO",
   preview = null,
   backups = [];
 const nav = [
@@ -69,6 +69,7 @@ const nav = [
   ["sale", "فروش محصول", "sale", ""],
   ["stock", "انبار و موجودی", "stock", ""],
   ["bank", "بانک و خزانه", "bank", "مالی و حسابداری"],
+  ["bankreview", "تطبیق صورت‌حساب‌ها", "bank", ""],
   ["checks", "مدیریت چک‌ها", "check", ""],
   ["cost", "هزینه و دستمزد", "book", ""],
   ["ledger", "دفترکل و تراز", "report", ""],
@@ -89,8 +90,10 @@ const refTitles = {
   Groups: "گروه و زیرگروه",
   Accounts: "سرفصل حساب",
   Operations: "نوع عملیات",
+  Currencies: "ارز و نسبت با ریال",
 };
 const refFields = {
+  Currencies: [["name","نام ارز"],["rial_per_unit","ریال معادل یک واحد ارز","number"]],
   Groups: [
     ["name", "نام گروه"],
     ["parent", "گروه والد (اختیاری)", "ref", "Groups"],
@@ -120,13 +123,17 @@ const refFields = {
     ["group", "گروه (اختیاری)", "ref", "Groups"],
     ["note", "توضیحات"],
     ["role", "نقش"],
+    ["nature", "ماهیت شخص"],
+    ["subgroup", "زیرماهیت"],
+    ["accounting_group", "گروه حسابداری"],
+    ["audit_group", "گروه حسابرسی"],
     ["active", "فعال", "select", ["بله", "خیر"]],
   ],
   Baskets: [
     ["name", "نام سبد"],
     ["tare", "تارای واقعی هر سبد (کیلوگرم)", "number"],
   ],
-  Products: [["name", "نام محصول"]],
+  Products: [["name", "نام محصول"],["group","گروه محصول"],["note","شرح رابطه"]],
   Stores: [["name", "نام انبار"]],
   Banks: [["name", "نام حساب بانکی"]],
   Deals: [
@@ -176,17 +183,8 @@ function toast(text) {
   $("#toast").classList.add("show");
   setTimeout(() => $("#toast").classList.remove("show"), 4500);
 }
-const money = (v) => {
-  let n = BigInt(v || 0),
-    sign = n < 0n ? "−" : "";
-  if (n < 0n) n = -n;
-  return (
-    sign +
-    new Intl.NumberFormat("fa-IR").format(unit === "IRR" ? n : n / 10n) +
-    (unit === "IRT" && n % 10n ? "٫" + fa(n % 10n) : "")
-  );
-};
-const moneyLabel = () => (unit === "IRT" ? "تومان" : "ریال");
+const money=v=>MazMoney.format(v,unit,S?.Settings,S?.Currencies);
+const moneyLabel=()=>MazMoney.view(unit,S?.Settings,S?.Currencies).name;
 const btn = (text, action, type = "", ico = "") =>
   `<button class="btn ${type}" data-action="${action}">${ico ? icon(ico) : ""}${text}</button>`;
 let stateEpoch = 0;
@@ -215,7 +213,7 @@ function showLogin() {
 }
 function render() {
   if (!S) return;
-  app.innerHTML = `<div class="shell"><aside class="sidebar"><div class="brand"><div class="mark">${icon("leaf")}</div><div><h1>مازندشت</h1><small>MAZANDASHT</small></div></div><nav>${nav.map(([id, label, i, group]) => `${group ? `<div class="navgroup">${group}</div>` : ""}<button class="navitem ${page === id ? "active" : ""}" data-page="${id}" title="${label}">${icon(i)}<span>${label}</span></button>`).join("")}</nav><div class="sidebarfoot"><i class="pulse"></i><span>متصل به دفتر اکسل محلی</span></div></aside><section class="workspace"><header class="topbar"><div class="breadcrumb">مازندشت <span> / </span><b>${titles[page]}</b></div><div class="topactions"><span class="date">${esc(health?.today)} · دفتر محلی</span><button class="iconbtn" data-action="unit" title="تغییر واحد نمایش">${unit === "IRR" ? "ریال" : "تومان"}</button><button class="iconbtn" data-action="fullscreen" title="تمام صفحه">${icon("full")}</button><div class="profile"><span class="avatar">م</span><div><strong>${esc(S.user.name)}</strong><small>${esc(S.user.role)} · فضای ${S.demo ? "آموزشی" : "محلی"}</small></div></div><button class="iconbtn" data-action="logout" title="خروج">${icon("logout")}</button></div></header><main class="content"><div class="heading"><div><div class="eyebrow">MAZANDASHT / WORKSPACE</div><h2>${page === "dashboard" ? "همه‌چیز، در یک نگاه." : titles[page]}</h2><p>${subtitle()}</p></div><div class="buttons">${btn("خروجی اکسل", "export", "", "download")}${newButton()}</div></div><div id="pagecontent" class="pagecontent"></div><footer class="footnote"><span>${icon("shield")}ذخیره محلی · ریال صحیح · پشتیبان پیش از هر تغییر</span><span>مازندشت ۰٫۷ · ${S.demo ? "نمونه آموزشی" : "دفتر اکسل"} · ${esc(titles[page])}</span></footer></main></section></div>`;
+  app.innerHTML = `<div class="shell"><aside class="sidebar"><div class="brand"><div class="mark">${icon("leaf")}</div><div><h1>مازندشت</h1><small>MAZANDASHT</small></div></div><nav>${nav.map(([id, label, i, group]) => `${group ? `<div class="navgroup">${group}</div>` : ""}<button class="navitem ${page === id ? "active" : ""}" data-page="${id}" title="${label}">${icon(i)}<span>${label}</span></button>`).join("")}</nav><div class="sidebarfoot"><i class="pulse"></i><span>متصل به دفتر اکسل محلی</span></div></aside><section class="workspace"><header class="topbar"><div class="breadcrumb">مازندشت <span> / </span><b>${titles[page]}</b></div><div class="topactions"><span class="date">${esc(health?.today)} · دفتر محلی</span><button class="iconbtn" data-action="unit" title="تغییر واحد نمایش">${esc(moneyLabel())}</button><button class="iconbtn" data-action="fullscreen" title="تمام صفحه">${icon("full")}</button><div class="profile"><span class="avatar">م</span><div><strong>${esc(S.user.name)}</strong><small>${esc(S.user.role)} · فضای ${S.demo ? "آموزشی" : "محلی"}</small></div></div><button class="iconbtn" data-action="logout" title="خروج">${icon("logout")}</button></div></header><main class="content"><div class="heading"><div><div class="eyebrow">MAZANDASHT / WORKSPACE</div><h2>${page === "dashboard" ? "همه‌چیز، در یک نگاه." : titles[page]}</h2><p>${subtitle()}</p></div><div class="buttons">${btn("خروجی اکسل", "export", "", "download")}${newButton()}</div></div><div id="pagecontent" class="pagecontent"></div><footer class="footnote"><span>${icon("shield")}ذخیره محلی · ریال صحیح · پشتیبان پیش از هر تغییر</span><span>مازندشت ۰٫۸ · ${S.demo ? "نمونه آموزشی" : "دفتر اکسل"} · ${esc(titles[page])}</span></footer></main></section></div>`;
   $("#pagecontent").className =
     page === "dashboard"
       ? "pagecontent dashcontents"
@@ -227,6 +225,7 @@ function render() {
   else if (page === "help") help();
   else if (page === "insights") insights();
   else if (page === "workbench") workbench();
+  else if (page === "bankreview") bankReviewPage();
   else listPage();
 }
 function subtitle() {
@@ -399,11 +398,12 @@ function renderList(records) {
         "نوع سبد",
         "وزن خالص (کیلوگرم)",
         "شماره قبض",
+        "اصلاح",
       ],
       records
         .map(
           (r) =>
-            `<tr><td>${fmtDate(r.date)}</td><td>${esc(r.operation)}</td><td>${esc(r.party)}</td><td>${esc(r.product)}</td><td>${esc(r.basket)}</td><td>${r.net === null ? badge("نیازمند بازبینی", "amber") : fa(r.net)}</td><td>${esc(r.reference)}</td></tr>`,
+            `<tr class="${movementClass(r)}"><td>${fmtDate(r.date)}</td><td>${esc(r.operation)}</td><td>${esc(r.party)}</td><td>${esc(r.product)}</td><td>${esc(r.basket)}</td><td>${r.net === null ? badge("نیازمند بازبینی", "amber") : fa(r.net)}</td><td>${esc(r.reference)}</td><td><button class="btn" data-edit-weigh="${esc(r.id)}">اصلاح</button></td></tr>`,
         )
         .join(""),
     );
@@ -462,7 +462,7 @@ function openModal(title, content, onSubmit, submit = "ثبت و ذخیره") {
     }
   });
 }
-function newEntry() {
+function newEntry(editId = null) {
   if (page === "refs") {
     openModal(
       "تعریف " + refTitles[tab],
@@ -473,9 +473,10 @@ function newEntry() {
     return;
   }
   if (page === "weigh") {
+    const editRecord=editId?S.Weigh.find(x=>x.id===editId):null;
     const fields = [
       ["date", "تاریخ شمسی"],
-      ["operation", "نوع عملیات", "select", ["ورود", "خروج", "انتقال"]],
+      ["operation", "نوع عملیات", "select", (S.WeighOps || []).map(x => x.name)],
       ["party", "طرف حساب", "ref", "Parties"],
       ["product", "محصول", "ref", "Products"],
       ["store", "انبار", "ref", "Stores"],
@@ -487,15 +488,20 @@ function newEntry() {
       ["waste", "ضایعات (کیلوگرم)", "number"],
       ["reference", "شماره قبض"],
       ["deal", "قرارداد شراکت (اختیاری)", "ref", "Deals"],
+      ["destination", "مقصد انتقال (برای انتقال لازم)", "ref", "Stores"],
+      ["basket_out", "سبد امانی تحویلی", "number"],
+      ["basket_return", "سبد امانی برگشتی", "number"],
+      ["round_base", "مبنای گردکردن؛ صفر یعنی دقیق", "number"],
+      ["amount", "مبلغ تعهد/درآمد ویژه (ریال)", "number"],
       ["note", "شرح"],
     ];
     openModal(
-      "ثبت قبض باسکول",
+      editRecord?"اصلاح ردیف باسکول با حفظ اصل منبع":"ثبت قبض باسکول",
       fields
         .map((f) =>
           field(
             f,
-            f[0] === "date"
+            editRecord ? (editRecord[f[0]] ?? "") : f[0] === "date"
               ? health.today
               : ["loss", "waste"].includes(f[0])
                 ? "0"
@@ -504,7 +510,7 @@ function newEntry() {
         )
         .join("") +
         '<div class="calculation" id="netpreview">نوع سبد را با نام انتخاب کنید؛ تارای دستی صفر نیز معتبر است.</div>',
-      (data) => api("/api/weigh", "POST", { data, revision: S.revision }),
+      (data) => api(editRecord?"/api/weigh/"+editRecord.id:"/api/weigh", editRecord?"PATCH":"POST", { data, revision: S.revision }),
     );
     $("#entryform").addEventListener("input", calcNet);
     return;
@@ -629,12 +635,13 @@ function calcNet() {
     String(v)
       .replace(/[۰-۹]/g, (c) => "۰۱۲۳۴۵۶۷۸۹".indexOf(c))
       .replaceAll(",", "");
-  let tare = f.tare.trim() !== "" ? normalize(f.tare) : b?.tare;
+  let tare = (f.tare || "").trim() !== "" ? normalize(f.tare) : b?.tare;
   if (tare === null || tare === undefined || tare === "") {
     $("#netpreview").textContent =
       "تارای این سبد مشخص نیست؛ وزن واقعی را وارد کنید.";
     return;
   }
+  if (["خروج سبد امانت","ورود سبد خالی","ورود سبد","خروج سبد","انعام مصطفی","هزینه باسکول احمد زاهدی","هزینه باسکول احمد موسویان","درآمد باسکول"].includes(f.operation)) { $("#netpreview").textContent = "این عملیات وزن میوه ندارد؛ گردش سبد یا تعهد مالی مستقل ثبت می‌شود."; return; }
   let n =
     (Number(normalize(f.gross)) - Number(normalize(f.count)) * Number(tare)) *
       (1 - Number(normalize(f.loss)) / 100) -
@@ -642,7 +649,7 @@ function calcNet() {
   $("#netpreview").textContent =
     n < 0
       ? "وزن خالص منفی است؛ ورودی‌ها را اصلاح کنید."
-      : `پیش‌نمایش وزن خالص: ${fa(Math.floor(n / 5) * 5)} کیلوگرم · تارا: ${fa(tare)} کیلوگرم · محاسبه نهایی در سرور انجام می‌شود.`;
+      : `پیش‌نمایش وزن خالص: ${fa(f.round_base === "0" ? n : Math.floor(n / Number(f.round_base || 5)) * Number(f.round_base || 5))} کیلوگرم · تارا: ${fa(tare)} کیلوگرم · محاسبه نهایی در سرور انجام می‌شود.`;
 }
 function importPage() {
   $("#pagecontent").innerHTML =
@@ -686,7 +693,7 @@ async function doPreview() {
 }
 async function help() {
   $("#pagecontent").innerHTML =
-    `<section class="panel fullpanel"><div class="tabs panelhead"><strong>دفتر شما، مستقل از نرم‌افزار</strong>${btn("پشتیبان جدید", "backup", "primary", "shield")}</div><article class="document"><h3>شروع کار با مازندشت</h3><p>۱. در «تعاریف پایه» نام اشخاص، نوع سبد و تارای واقعی، محصولات، انبارها و بانک‌ها را تعریف کنید.<br>۲. قبض باسکول را ثبت کنید؛ باسکول به‌تنهایی سند مالی نیست.<br>۳. خرید یا فروش عادی را ثبت کنید. فروش نیازمند موجودی کافی و بهای تمام‌شده تأییدشده است.<br>۴. دریافت، پرداخت، هزینه و دستمزد، سند دوبل ایجاد می‌کنند. همه مبالغ ورود ریال هستند؛ کلید واحد بالا فقط نمایش را عوض می‌کند.<br>۵. برای اصلاح سند قطعی از «برگشت با علت» استفاده کنید؛ اصل سند حفظ می‌شود.</p><h3>فایل اکسل مستقل</h3><p>از «خروجی اکسل» فایل کامل را بگیرید. برگه <code>Guide</code> راهنمای مستقل است. در <code>Events</code> رویداد وارد کنید؛ <code>Journal</code>، <code>Trial</code> و <code>Stock</code> با فرمول کار می‌کنند. کدها پنهان‌اند و فهرست‌ها نام نشان می‌دهند. اکسل و نرم‌افزار را هم‌زمان روی یک فایل ویرایش نکنید. برای کار دوباره نرم‌افزار، همان فایل را با برنامه بسته در پوشه داده جایگزین کنید؛ قالب و نسخه ساختار باید حفظ شده باشد.</p><h3>وضعیت واقعی نسخه</h3><p>این نسخه توسعه است و تأیید حسابداری رسمی/مالیاتی ندارد. اطلاعات تاریخی در فایل‌های اصلاح‌شده جداگانه حفظ شده‌اند؛ مهاجرت مالی آنها انجام نشده است. تقسیم سود دوره برای مدل اصیل با درصد تاریخی و قفل دوره فعال است؛ مدل مالکیت مشترک/امانی، ارزش‌گذاری خودکار موجودی، حقوق با بیمه/مالیات، بستن کامل دوره، باسکول سخت‌افزاری و مدل زبانی متصل هنوز وجود ندارند. چک‌ها فقط دفتر چرخه عملیاتی دارند؛ وصول را با ثبت بانکی تطبیق دهید. انبار این نسخه از خرید و فروش متعلق به شرکت محاسبه می‌شود؛ انتقال انبار و موجودی امانی خودکار نیست.</p><h3>پشتیبان و بازیابی</h3><p>قبل از هر تغییر، یک کپی کامل محلی ساخته می‌شود. بازیابی فقط برای مدیر است و خودش نیز پشتیبان دارد. زنجیره ممیزی هنگام نوشتن کنترل می‌شود؛ این حفاظت در برابر دست‌کاری همه فایل‌ها توسط مدیر سیستم‌عامل، تضمین رمزنگاری بیرونی ندارد.</p><h3>منبع داده و تفاوت پشتیبان</h3><div id="provenance"></div><h3>اصلاحات اکسل‌های قدیمی کجاست؟</h3><p>پنجره حاضر از فایل یکپارچه Mazandasht.xlsx می‌خواند، نه خودکار از ۱۴ فایل قدیمی. نسخه‌های اصلاح‌شده در پوشه Excel-v1.11 بسته خصوصی هستند. ستون‌های تازه با عنوان «انتخاب نام» در سمت انتهایی برگه ورودی اضافه شده‌اند؛ برای باسکول Entry ستون‌های AR تا AW و برای سبد Entry ستون‌های T و U را ببینید. راهنمای نقشه کامل کنار بسته قرار دارد. داده آموزشیِ پیش‌نمایش سوابق واقعی شما نیست.</p><div id="backuplist"></div><h3>ممیزی اخیر</h3>${table(
+    `<section class="panel fullpanel"><div class="tabs panelhead"><strong>دفتر شما، مستقل از نرم‌افزار</strong>${btn("پشتیبان جدید", "backup", "primary", "shield")}</div><article class="document"><h3>شروع کار با مازندشت</h3><p>۱. در «تعاریف پایه» نام اشخاص، نوع سبد و تارای واقعی، محصولات، انبارها و بانک‌ها را تعریف کنید.<br>۲. قبض باسکول را ثبت کنید؛ باسکول بار به‌تنهایی سند مالی نیست؛ عملیات ویژه انعام/هزینه خدمات، تعهد جدا ایجاد می‌کند.<br>۳. خرید یا فروش عادی را ثبت کنید. فروش نیازمند موجودی کافی و بهای تمام‌شده تأییدشده است.<br>۴. دریافت، پرداخت، هزینه و دستمزد، سند دوبل ایجاد می‌کنند. همه مبالغ ورود ریال هستند؛ کلید واحد بالا فقط نمایش را عوض می‌کند.<br>۵. برای اصلاح سند قطعی از «برگشت با علت» استفاده کنید؛ اصل سند حفظ می‌شود.</p><h3>فایل اکسل مستقل</h3><p>از «خروجی اکسل» فایل کامل را بگیرید. برگه <code>Guide</code> راهنمای مستقل است. در <code>Events</code> رویداد وارد کنید؛ <code>Journal</code>، <code>Trial</code> و <code>Stock</code> با فرمول کار می‌کنند. کدها پنهان‌اند و فهرست‌ها نام نشان می‌دهند. اکسل و نرم‌افزار را هم‌زمان روی یک فایل ویرایش نکنید. برای کار دوباره نرم‌افزار، همان فایل را با برنامه بسته در پوشه داده جایگزین کنید؛ قالب و نسخه ساختار باید حفظ شده باشد.</p><h3>وضعیت واقعی نسخه</h3><p>این نسخه توسعه است و تأیید حسابداری رسمی/مالیاتی ندارد. باسکول و صورت‌حساب‌ها در دفتر یکپارچه نگهداری می‌شوند؛ اتصال ردیف بانک به سند مالی، نیازمند تطبیق شخص و ماهیت است. تقسیم سود دوره برای مدل اصیل با درصد تاریخی و قفل دوره فعال است؛ مدل مالکیت مشترک/امانی، ارزش‌گذاری خودکار موجودی، حقوق با بیمه/مالیات، بستن کامل دوره، باسکول سخت‌افزاری و مدل زبانی متصل هنوز وجود ندارند. چک‌ها فقط دفتر چرخه عملیاتی دارند؛ وصول را با ثبت بانکی تطبیق دهید. موجودی مالی از اسناد قطعی محاسبه می‌شود؛ گردش فیزیکی انبار و سبد امانی گزارش مستقل دارد. انتقال از مبدأ کم و به مقصد اضافه می‌کند.</p><h3>پشتیبان و بازیابی</h3><p>قبل از هر تغییر، یک کپی کامل محلی ساخته می‌شود. بازیابی فقط برای مدیر است و خودش نیز پشتیبان دارد. زنجیره ممیزی هنگام نوشتن کنترل می‌شود؛ این حفاظت در برابر دست‌کاری همه فایل‌ها توسط مدیر سیستم‌عامل، تضمین رمزنگاری بیرونی ندارد.</p><h3>منبع داده و تفاوت پشتیبان</h3><div id="provenance"></div><h3>اصلاحات اکسل‌های قدیمی کجاست؟</h3><p>پنجره حاضر از فایل یکپارچه Mazandasht.xlsx می‌خواند، نه خودکار از ۱۴ فایل قدیمی. نسخه‌های اصلاح‌شده در پوشه Excel-v1.11 بسته خصوصی هستند. ستون‌های تازه با عنوان «انتخاب نام» در سمت انتهایی برگه ورودی اضافه شده‌اند؛ برای باسکول Entry ستون‌های AR تا AW و برای سبد Entry ستون‌های T و U را ببینید. راهنمای نقشه کامل کنار بسته قرار دارد. داده آموزشیِ پیش‌نمایش سوابق واقعی شما نیست.</p><div id="backuplist"></div><h3>ممیزی اخیر</h3>${table(
       ["زمان UTC", "کاربر", "عملیات"],
       (S.Audit || [])
         .slice(-5)
@@ -746,7 +753,7 @@ async function handleAction(action) {
   else if (action === "reports") window.location.assign("/reports");
   else if (action === "refresh") await refresh();
   else if (action === "unit") {
-    unit = unit === "IRR" ? "IRT" : "IRR";
+    const units=MazMoney.units(S.Currencies);unit=units[(units.indexOf(unit)+1)%units.length];
     render();
   } else if (action === "fullscreen") {
     try {
@@ -879,3 +886,5 @@ window.addEventListener("resize", () => {
     else toast(err.message);
   }
 })();
+
+document.addEventListener("click",e=>{const b=e.target.closest("[data-edit-weigh]");if(b)newEntry(b.dataset.editWeigh);});

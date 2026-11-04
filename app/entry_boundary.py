@@ -24,7 +24,7 @@ class LocalOnly:
             if not local:
                 response=JSONResponse({'detail':'ورود و ثبت فقط روی سیستم مرکزی مجاز است؛ برای گزارش از داشبورد استفاده کنید'},status_code=403)
             elif scope['path']=='/api/health' and scope['method']=='GET':
-                response=JSONResponse({'ok':True,'version':'0.7.0','mode':'installed_central','demo':False,'today':jdatetime.date.today().strftime('%Y/%m/%d'),'instance':self.instance})
+                response=JSONResponse({'ok':True,'version':'0.8.0','mode':'installed_central','demo':False,'today':jdatetime.date.today().strftime('%Y/%m/%d'),'instance':self.instance})
             elif scope['path']=='/desktop/start' and scope['method']=='GET':
                 key=parse_qs(scope.get('query_string',b'').decode()).get('key',[''])[0]
                 if self.bootstrap and secrets.compare_digest(key,self.bootstrap):

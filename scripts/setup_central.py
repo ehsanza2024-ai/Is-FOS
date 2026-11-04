@@ -22,8 +22,8 @@ def main():
         existing=Store(root,read_only=True).read()
         if any(r['key']=='mode' and r['value']=='نمونه آموزشی' for r in existing['Info']):
             raise SystemExit('Synthetic demo ledger detected. Select a separate real central data directory.')
-        if any(r['key']=='schema_version' and r['value']=='1.0' for r in existing['Info']):
-            if input('Upgrade existing canonical schema to 1.1 with backup? [y/N]: ').strip().lower()!='y':raise SystemExit('Upgrade declined; existing ledger unchanged.')
+        if any(r['key']=='schema_version' and r['value'] in ['1.0','1.1'] for r in existing['Info']):
+            if input('Upgrade existing canonical schema to 1.2 with backup? [y/N]: ').strip().lower()!='y':raise SystemExit('Upgrade declined; existing ledger unchanged.')
             from scripts.upgrade_ledger import upgrade
             upgrade(root)
     if (root/'auth.sqlite3').exists():

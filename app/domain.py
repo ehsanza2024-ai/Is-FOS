@@ -36,7 +36,7 @@ def date(value):
     except ValueError:raise RuleError('تاریخ شمسی معتبر نیست')
     return int(s)
 
-def net_weight(gross,count,tare,loss=0,waste=0):
+def net_weight(gross,count,tare,loss=0,waste=0,round_base=5):
     g=decimal(gross,'وزن باسکول');c=decimal(count,'تعداد سبد')
     if c!=c.to_integral_value():raise RuleError('تعداد سبد باید صحیح باشد')
     if tare is None or normalize(tare)=='':raise RuleError('تارای سبد نامشخص است؛ صفر را فقط در صورت واقعی بودن وارد کنید')
@@ -44,7 +44,8 @@ def net_weight(gross,count,tare,loss=0,waste=0):
     if l>100:raise RuleError('درصد افت باید بین صفر و صد باشد')
     net=(g-c*t)*(1-l/100)-w
     if net<0:raise RuleError('وزن خالص منفی است')
-    return (net/5).to_integral_value(rounding=ROUND_FLOOR)*5
+    base=decimal(round_base,'مبنای گرد کردن')
+    return (net/base).to_integral_value(rounding=ROUND_FLOOR)*base if base else net
 
 KINDS={'خرید':('موجودی کالا','حساب‌های پرداختنی'),
        'فروش':('حساب‌های دریافتنی','درآمد فروش'),

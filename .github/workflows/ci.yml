@@ -20,4 +20,4 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: Mazandasht-development-source-and-blank-template
-          path: private/delivery/Mazandasht-Software-0.7.0.zip
+          path: private/delivery/Mazandasht-Software-0.8.0.zip

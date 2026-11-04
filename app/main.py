@@ -17,7 +17,7 @@ BASE=Path(__file__).resolve().parents[1]
 DEMO=os.environ.get('MAZANDASHT_DEMO')=='1'
 ROOT=Path(os.environ.get('MAZANDASHT_DATA',str(BASE/'runtime'/('demo' if DEMO else 'local'))))
 store=Store(ROOT,DEMO);security=Security(ROOT,DEMO)
-app=FastAPI(title='مازندشت | هسته اکسل',version='0.7.0',docs_url=None,redoc_url=None)
+app=FastAPI(title='مازندشت | هسته اکسل',version='0.8.0',docs_url=None,redoc_url=None)
 app.mount('/static',StaticFiles(directory=BASE/'static'),name='static')
 
 @app.middleware('http')
@@ -46,7 +46,7 @@ async def excel_locked(request,exc):return JSONResponse({'detail':'فایل اک
 @app.get('/')
 def index():return FileResponse(BASE/'static/index.html')
 @app.get('/api/health')
-def health():return {'ok':True,'version':'0.7.0','demo':DEMO,'today':jdatetime.date.today().strftime('%Y/%m/%d'),'status':'نسخه توسعه؛ تأیید تولید نشده'}
+def health():return {'ok':True,'version':'0.8.0','demo':DEMO,'today':jdatetime.date.today().strftime('%Y/%m/%d'),'status':'نسخه توسعه؛ تأیید تولید نشده'}
 @app.post('/api/login')
 async def login(request:Request):
     b=await request.json();token,user=security.login(str(b.get('name','')),str(b.get('password','')),request.client.host)
@@ -207,3 +207,14 @@ def collaboration_export(request:Request):
     security.require(request,'admin')
     text=''.join(json.dumps(r,ensure_ascii=False)+'\n' for r in history(ROOT))
     return Response(text,media_type='application/x-ndjson',headers={'Content-Disposition':'attachment; filename="evolution.jsonl"'})
+
+@app.post('/api/bank-statements/{entity}/resolve')
+async def resolve_bank_statement(entity:str,request:Request):
+    user=security.require(request,'finance');b=await request.json()
+    return store.resolve_bank(entity,b['data'],user['name'],b.get('revision'))
+
+@app.patch('/api/weigh/{entity}')
+async def correct_weigh(entity:str,request:Request):
+    user=security.require(request,'operate');b=await request.json()
+    from app.movement_store import add_weigh
+    return add_weigh(store,b['data'],user['name'],b.get('revision'),entity)

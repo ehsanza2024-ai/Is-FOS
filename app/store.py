@@ -77,6 +77,8 @@ class Store:
             w=load_workbook(self.path);self.verify_audit(w)
             data={sn:rows(w,sn) for sn in ['Parties','Baskets','Products','Stores','Banks','Deals','Info','Weigh','Events','Checks','Audit']}
             for sn,records in defaults().items():data[sn]=rows(w,sn) if sn in w else records
+            from app.integration import NEW_SHEETS
+            for sn in NEW_SHEETS:data[sn]=rows(w,sn) if sn in w else []
             revision=fingerprint(self.path)
         for e in data['Events']:
             e['date']=d.date(e['date'])
@@ -96,7 +98,9 @@ class Store:
             if c['amount']<=0 or c['state'] not in d.CHECK_TRANSITIONS:raise d.RuleError('مبلغ یا وضعیت چک در اکسل معتبر نیست')
         for r in data['Weigh']:
             r['date']=d.date(r['date'])
-            try:r['net']=str(d.net_weight(r['gross'],r['count'],r['tare'],r.get('loss') or 0,r.get('waste') or 0))
+            try:
+                from app.integration import net,MOVEMENTS,SPECIAL
+                r['net']='0' if r['operation'] in SPECIAL or MOVEMENTS.get(r['operation'],(0,0,False,'بار'))[3]=='سبد' else str(net(r))
             except d.RuleError:r['net']=None
         data.update(revision=revision,stock=self.stock(data['Events']),trial=self.trial(data['Events'],data['Accounts']))
         return data
@@ -125,9 +129,13 @@ class Store:
     def refs(w):return {**{sn:rows(w,sn) for sn in ['Parties','Baskets','Products','Stores','Banks','Deals']},**{sn:rows(w,sn) if sn in w else records for sn,records in defaults().items()}}
 
     def add_ref(self,sheet,data,actor,revision):
-        if sheet not in ['Parties','Baskets','Products','Stores','Banks','Deals','Groups','Accounts','Operations']:raise d.RuleError('نوع تعریف مجاز نیست')
+        if sheet not in ['Parties','Baskets','Products','Stores','Banks','Deals','Groups','Accounts','Operations','Currencies']:raise d.RuleError('نوع تعریف مجاز نیست')
         item={k:d.normalize(data.get(k,'')) for k in SCHEMAS[sheet] if k!='id'};item['id']=uid()
         if not item['name'] or len(item['name'])>120:raise d.RuleError('نام باید بین ۱ و ۱۲۰ نویسه باشد')
+        if sheet=='Currencies' and item['rial_per_unit']!='':
+            rate=d.decimal(item['rial_per_unit'],'نسبت ارز با ریال')
+            if rate<=0:raise d.RuleError('نسبت ارز باید مثبت باشد')
+            item['rial_per_unit']=str(rate)
         if sheet=='Baskets' and item['tare']!='':item['tare']=str(d.decimal(item['tare'],'تارا'))
         with self.edit(actor,'reference.create:'+sheet,revision) as w:
             if sheet not in w:raise d.RuleError('ابتدا ارتقای ساختار ۱٫۱ را اجرا کنید')
@@ -171,27 +179,12 @@ class Store:
         return item
 
     def add_weigh(self,data,actor,revision):
-        r={k:d.normalize(data.get(k,'')) for k in ['operation','party','product','store','basket','reference','note','deal']}
-        r.update(id=uid(),date=d.date(data.get('date')))
-        with self.edit(actor,'weigh.create',revision) as w:
-            refs=self.refs(w)
-            for key,sn in [('party','Parties'),('product','Products'),('store','Stores'),('basket','Baskets')]:
-                if r[key] not in {x['name'] for x in refs[sn]}:raise d.RuleError('همه نام‌های مرجع را انتخاب کنید')
-            b=next(x for x in refs['Baskets'] if x['name']==r['basket'])
-            manual=data.get('tare');tare=b.get('tare') if manual is None or d.normalize(manual)=='' else manual
-            for k in ['gross','count','loss','waste']:r[k]=str(d.decimal(data.get(k) or 0))
-            net=d.net_weight(r['gross'],r['count'],tare,r['loss'],r['waste']);r['tare']=str(tare)
-            r['share']='1'
-            if r['deal']:
-                contract=next((x for x in refs['Deals'] if x['name']==r['deal']),None)
-                if not contract or contract['status']!='تأیید' or not int(contract['start'])<=r['date']<=int(contract['end']):raise d.RuleError('قرارداد معتبر و تأییدشده لازم است')
-                if contract['product'] and contract['product']!=r['product']:raise d.RuleError('محصول قرارداد ناسازگار است')
-                r['share']=str(contract['share'])
-            if r['operation'] not in ['ورود','خروج','انتقال']:raise d.RuleError('نوع عملیات معتبر نیست')
-            if not r['reference']:raise d.RuleError('شماره قبض لازم است')
-            if any(x['reference']==r['reference'] for x in rows(w,'Weigh')):raise d.RuleError('شماره قبض تکراری است')
-            put(w,'Weigh',r)
-        r['net']=str(net);return r
+        from app.movement_store import add_weigh
+        return add_weigh(self,data,actor,revision)
+
+    def resolve_bank(self,entity,data,actor,revision):
+        from app.movement_store import resolve_bank
+        return resolve_bank(self,entity,data,actor,revision)
 
     def add_event(self,data,actor,revision):
         with self.edit(actor,'event.post',revision) as w:
@@ -217,7 +210,7 @@ class Store:
             reversed_ids={e.get('reversal_of') for e in old if e.get('reversal_of')}
             if any(e.get('source_weigh')==r['source_weigh'] and int(e.get('sign') or 1)==1 and e['id'] not in reversed_ids for e in old):raise Conflict('این باسکول قبلاً به سند فعال متصل شده است')
             if r['kind'] not in ['خرید','فروش'] or any(r[k]!=weigh[k] for k in ['party','product','store']):raise d.RuleError('اطلاعات سند با باسکول منبع یکسان نیست')
-            if Decimal(r['qty'])!=d.net_weight(weigh['gross'],weigh['count'],weigh['tare'],weigh.get('loss') or 0,weigh.get('waste') or 0):raise d.RuleError('مقدار سند با وزن خالص باسکول یکسان نیست')
+            if Decimal(r['qty'])!=__import__('app.integration',fromlist=['net']).net(weigh):raise d.RuleError('مقدار سند با وزن خالص باسکول یکسان نیست')
         r.update(id=uid(),status='قطعی',sign=1,input_amount=r['amount']);d.posting(r)
         put(w,'Events',r);return r
 
@@ -295,6 +288,10 @@ class Store:
         with self.lock:
             if fingerprint(self.path)!=revision:raise Conflict('فایل تغییر کرده است')
             backup=load_workbook(candidate);self.verify_audit(backup)
+            if {'Info','Weigh','Events','Parties','Audit'}.issubset(backup.sheetnames) and any(x['key']=='schema_version' and x['value'] in ['1.0','1.1'] for x in rows(backup,'Info')):
+                from app.schema import install
+                from app.excel_design import apply
+                install(backup);apply(backup)
             if set(SCHEMAS)-set(backup.sheetnames):raise d.RuleError('ساختار پشتیبان معتبر نیست')
             # Restore workbook contents via the normal transactional writer; preserve current audit history.
             with self.edit(actor,'backup.restore:'+name,revision) as current:

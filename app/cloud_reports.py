@@ -12,7 +12,7 @@ MAX_PAYLOAD=50*1024*1024
 
 def package(data,password):
     if len(password)<12:raise d.RuleError('رمز فایل گزارش حداقل ۱۲ نویسه باشد؛ رمز در فایل ذخیره نمی‌شود')
-    months=sorted({str(e['date'])[:6] for e in data['Events'] if e['status']=='قطعی'})[-36:]
+    months=sorted({str(e['date'])[:6] for e in data['Events'] if e['status']=='قطعی'}|{str(r['date'])[:6] for sn in ['Weigh','BankStatements'] for r in data.get(sn,[])})[-36:]
     variants=[('all','کل دفتر',None,None)]
     import jdatetime
     for m in months:
@@ -23,7 +23,7 @@ def package(data,password):
         report=build_report(data,start,end)
         report['events']=[{**e,'lines':d.posting(e)} for e in report['events']]
         periods.append({'id':identifier,'label':label,'report':report})
-    payload={'format':'mazandasht.payload','schema':1,'created_at':datetime.now(timezone.utc).isoformat(),'revision':data['revision'],'synthetic':any(r['key']=='mode' and r['value']=='نمونه آموزشی' for r in data['Info']),'periods':periods,'tables':{k:data[k] for k in ['Parties','Accounts','Groups','Operations','Deals','Baskets','Products','Stores','Banks','Weigh','Checks']}}
+    payload={'format':'mazandasht.payload','schema':1,'created_at':datetime.now(timezone.utc).isoformat(),'revision':data['revision'],'synthetic':any(r['key']=='mode' and r['value']=='نمونه آموزشی' for r in data['Info']),'periods':periods,'tables':{k:data[k] for k in ['Parties','Accounts','Groups','Operations','Deals','Baskets','Products','Stores','Banks','Weigh','Checks','WeighOps','Dimensions','BankStatements','Currencies','Settings'] if k in data}}
     plain=json.dumps(exact_json(payload),ensure_ascii=False,separators=(',',':')).encode()
     if len(plain)>MAX_PAYLOAD:raise d.RuleError('بسته گزارش بزرگ‌تر از ۵۰ مگابایت است؛ دامنه دفتر را تفکیک کنید')
     salt=os.urandom(16);nonce=os.urandom(12);key=hashlib.pbkdf2_hmac('sha256',password.encode(),salt,ITERATIONS,32)
