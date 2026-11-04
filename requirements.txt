@@ -1,0 +1,9 @@
+fastapi==0.115.6
+uvicorn==0.34.0
+openpyxl==3.1.5
+lxml==5.3.0
+jdatetime==5.2.0
+python-multipart==0.0.20
+filelock==3.16.1
+pytest==8.3.4
+httpx==0.28.1

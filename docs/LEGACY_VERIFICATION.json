@@ -1,0 +1,86 @@
+[
+  {
+    "file": "Basket.xlsx",
+    "original_formulas_preserved": 32919,
+    "unchanged_other_package_parts": 23,
+    "missing_parts": 0
+  },
+  {
+    "file": "Buy.xlsx",
+    "original_formulas_preserved": 83005,
+    "unchanged_other_package_parts": 27,
+    "missing_parts": 0
+  },
+  {
+    "file": "Cheq.xlsx",
+    "original_formulas_preserved": 67913,
+    "unchanged_other_package_parts": 29,
+    "missing_parts": 0
+  },
+  {
+    "file": "Cost.xlsx",
+    "original_formulas_preserved": 26904,
+    "unchanged_other_package_parts": 19,
+    "missing_parts": 0
+  },
+  {
+    "file": "Dash.xlsx",
+    "original_formulas_preserved": 30640,
+    "unchanged_other_package_parts": 50,
+    "missing_parts": 0
+  },
+  {
+    "file": "Fin.xlsx",
+    "original_formulas_preserved": 287317,
+    "unchanged_other_package_parts": 53,
+    "missing_parts": 0
+  },
+  {
+    "file": "Help.xlsx",
+    "original_formulas_preserved": 0,
+    "unchanged_other_package_parts": 22,
+    "missing_parts": 0
+  },
+  {
+    "file": "Info.xlsx",
+    "original_formulas_preserved": 626,
+    "unchanged_other_package_parts": 41,
+    "missing_parts": 0
+  },
+  {
+    "file": "Invoice.xlsx",
+    "original_formulas_preserved": 144464,
+    "unchanged_other_package_parts": 39,
+    "missing_parts": 0
+  },
+  {
+    "file": "Partner.xlsx",
+    "original_formulas_preserved": 128904,
+    "unchanged_other_package_parts": 37,
+    "missing_parts": 0
+  },
+  {
+    "file": "Sale.xlsx",
+    "original_formulas_preserved": 83005,
+    "unchanged_other_package_parts": 27,
+    "missing_parts": 0
+  },
+  {
+    "file": "Staff.xlsx",
+    "original_formulas_preserved": 34081,
+    "unchanged_other_package_parts": 23,
+    "missing_parts": 0
+  },
+  {
+    "file": "Txn.xlsx",
+    "original_formulas_preserved": 39804,
+    "unchanged_other_package_parts": 23,
+    "missing_parts": 0
+  },
+  {
+    "file": "Weigh.xlsx",
+    "original_formulas_preserved": 36551,
+    "unchanged_other_package_parts": 27,
+    "missing_parts": 0
+  }
+]

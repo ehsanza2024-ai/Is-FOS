@@ -1,0 +1,10 @@
+* text=auto
+*.md text eol=lf whitespace=-blank-at-eol
+*.py text eol=lf
+*.js text eol=lf
+*.css text eol=lf
+*.sh text eol=lf
+*.bat text eol=crlf whitespace=cr-at-eol
+*.xlsx binary
+*.png binary
+*.zip binary

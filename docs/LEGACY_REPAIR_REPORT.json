@@ -1,0 +1,326 @@
+[
+  {
+    "file": "Basket.xlsx",
+    "sha256_before": "58194fb57253e3c85dde2772e88c4fd1ef2559508cd09b5de73f04c8ebb2d895",
+    "sha256_after": "36bd9c85cf048fc88aae5471a4f886497d1b2ce12412c52aa9e24d280cb71baf",
+    "selectors": [
+      {
+        "sheet": "Entry",
+        "old_range": "D9:D1008",
+        "selector": "T9:T1008",
+        "type": "AcctCodes",
+        "choices": 116,
+        "refresh": "live_sync"
+      },
+      {
+        "sheet": "Entry",
+        "old_range": "G9:G1008",
+        "selector": "U9:U1008",
+        "type": "BasketCodes",
+        "choices": 13,
+        "refresh": "live_sync"
+      }
+    ],
+    "note": "نام اقلام اصلی به Sync پیوند دارد؛ نام قرارداد، نرخ و شناسه بار snapshot است. اصل و نسخه اصلاحی را جدا نگه دارید."
+  },
+  {
+    "file": "Buy.xlsx",
+    "sha256_before": "602aba52314b30f2aa635e2a591e0bf0a26917d83bb5846e018812ba43999572",
+    "sha256_after": "2151dcae243f4e73f6224145e2e218a810ddb800be3a71c6f4824728c34d7d30",
+    "selectors": [
+      {
+        "sheet": "Details",
+        "old_range": "A9:A1008",
+        "selector": "X9:X1008",
+        "type": "SourceIDs",
+        "choices": 262,
+        "refresh": "snapshot"
+      },
+      {
+        "sheet": "Details",
+        "old_range": "K9:K1008",
+        "selector": "Y9:Y1008",
+        "type": "DealCodes",
+        "choices": 1,
+        "refresh": "snapshot"
+      },
+      {
+        "sheet": "Details",
+        "old_range": "P9:P1008",
+        "selector": "Z9:Z1008",
+        "type": "AcctCodes",
+        "choices": 116,
+        "refresh": "live_sync"
+      }
+    ],
+    "note": "نام اقلام اصلی به Sync پیوند دارد؛ نام قرارداد، نرخ و شناسه بار snapshot است. اصل و نسخه اصلاحی را جدا نگه دارید."
+  },
+  {
+    "file": "Cheq.xlsx",
+    "sha256_before": "94bd4c8997dc545203bd637f6481a1de8583657cdf8fae127e46f98b236fca6d",
+    "sha256_after": "e05d1b16205df72bc30da4cf31bee59b485e9502b10e97995183a1a62d74a54a",
+    "selectors": [
+      {
+        "sheet": "Entry",
+        "old_range": "D9:D1008",
+        "selector": "AJ9:AJ1008",
+        "type": "AcctCodes",
+        "choices": 116,
+        "refresh": "live_sync"
+      },
+      {
+        "sheet": "Entry",
+        "old_range": "K9:K1008",
+        "selector": "AK9:AK1008",
+        "type": "BankCodes",
+        "choices": 10,
+        "refresh": "live_sync"
+      }
+    ],
+    "note": "نام اقلام اصلی به Sync پیوند دارد؛ نام قرارداد، نرخ و شناسه بار snapshot است. اصل و نسخه اصلاحی را جدا نگه دارید."
+  },
+  {
+    "file": "Cost.xlsx",
+    "sha256_before": "2f9e2d3131fe4b8eb876cc65cea8496178bb235f6d38a331279bb1072c2633d5",
+    "sha256_after": "daf637136f6e845b10bd24ce2fb7d88cc7b8d83b4ddd91bf76b25624251cee6c",
+    "selectors": [
+      {
+        "sheet": "Entry",
+        "old_range": "D9:D1008",
+        "selector": "T9:T1008",
+        "type": "AcctCodes",
+        "choices": 116,
+        "refresh": "live_sync"
+      },
+      {
+        "sheet": "Entry",
+        "old_range": "G9:G1008",
+        "selector": "U9:U1008",
+        "type": "AcctCodes",
+        "choices": 116,
+        "refresh": "live_sync"
+      },
+      {
+        "sheet": "Entry",
+        "old_range": "K9:K1008",
+        "selector": "V9:V1008",
+        "type": "DealCodes",
+        "choices": 1,
+        "refresh": "snapshot"
+      }
+    ],
+    "note": "نام اقلام اصلی به Sync پیوند دارد؛ نام قرارداد، نرخ و شناسه بار snapshot است. اصل و نسخه اصلاحی را جدا نگه دارید."
+  },
+  {
+    "file": "Dash.xlsx",
+    "sha256_before": "20d052c58c03eafde1cee5430ef95da31b4af28d9cf80bfd570cd595ab49907c",
+    "sha256_after": "b0f8a8fe0fb42af401d7e39ad401644e3397e530d4a4808a0e9647b0d20827f8",
+    "selectors": [],
+    "note": "نام اقلام اصلی به Sync پیوند دارد؛ نام قرارداد، نرخ و شناسه بار snapshot است. اصل و نسخه اصلاحی را جدا نگه دارید."
+  },
+  {
+    "file": "Fin.xlsx",
+    "sha256_before": "5f5c55a14c17177466f3b6b7c602e974c59631951baee20f23fe34add38b6d8f",
+    "sha256_after": "397331f8d9d50141e75fc013480e7554e93c10b9409f857993d5687d07b5c014",
+    "selectors": [],
+    "note": "نام اقلام اصلی به Sync پیوند دارد؛ نام قرارداد، نرخ و شناسه بار snapshot است. اصل و نسخه اصلاحی را جدا نگه دارید."
+  },
+  {
+    "file": "Help.xlsx",
+    "sha256_before": "843187fd4d73aef9e5cc23f674d13e340093dd52a3986d7e44367feab780defc",
+    "sha256_after": "832c19220c9e976bb6a8a4667acf710122fbaa767521436f5627c96ae2c7de04",
+    "selectors": [],
+    "note": "نام اقلام اصلی به Sync پیوند دارد؛ نام قرارداد، نرخ و شناسه بار snapshot است. اصل و نسخه اصلاحی را جدا نگه دارید."
+  },
+  {
+    "file": "Info.xlsx",
+    "sha256_before": "b39ec9842e778dc536fe6adb829569f38d539cf417c66a7992920822d0756ecd",
+    "sha256_after": "7e2bdb5a2316f79d3ff61f8ea33823604be6d915161d6c48bb626f9a8988c449",
+    "selectors": [
+      {
+        "sheet": "Setup",
+        "old_range": "B10",
+        "selector": "E10:E10",
+        "type": "FxCodes",
+        "choices": 4,
+        "refresh": "live_sync"
+      }
+    ],
+    "note": "نام اقلام اصلی به Sync پیوند دارد؛ نام قرارداد، نرخ و شناسه بار snapshot است. اصل و نسخه اصلاحی را جدا نگه دارید."
+  },
+  {
+    "file": "Invoice.xlsx",
+    "sha256_before": "965a4cd70757c4cce661160973c4ca65106317b632c377e9438260560032207a",
+    "sha256_after": "a0f636d67c598849fbb365cee705f66fd18ff1c0d8d27b104efa5bf5d73e642c",
+    "selectors": [
+      {
+        "sheet": "Setup",
+        "old_range": "B9",
+        "selector": "H9:H9",
+        "type": "InvoiceAccounts",
+        "choices": 116,
+        "refresh": "live_sync"
+      }
+    ],
+    "note": "نام اقلام اصلی به Sync پیوند دارد؛ نام قرارداد، نرخ و شناسه بار snapshot است. اصل و نسخه اصلاحی را جدا نگه دارید."
+  },
+  {
+    "file": "Partner.xlsx",
+    "sha256_before": "29c69196849444428e300250adaf59192639ddda43f53d1dfb491ecad8416a49",
+    "sha256_after": "031dc13747e494f9ab597e4a299d5b6910db42c156e0419a8dd682ad844aa340",
+    "selectors": [],
+    "note": "نام اقلام اصلی به Sync پیوند دارد؛ نام قرارداد، نرخ و شناسه بار snapshot است. اصل و نسخه اصلاحی را جدا نگه دارید."
+  },
+  {
+    "file": "Sale.xlsx",
+    "sha256_before": "4d397633e16849cffd21c90bb3dac6d2264becffe00db6907d2a3cf257cc4730",
+    "sha256_after": "cdaac326af1ac29954cb68f4231b6bf3220b4ee8cd1f78db8b733eb54ff05d23",
+    "selectors": [
+      {
+        "sheet": "Details",
+        "old_range": "A9:A1008",
+        "selector": "X9:X1008",
+        "type": "SourceIDs",
+        "choices": 262,
+        "refresh": "snapshot"
+      },
+      {
+        "sheet": "Details",
+        "old_range": "K9:K1008",
+        "selector": "Y9:Y1008",
+        "type": "DealCodes",
+        "choices": 1,
+        "refresh": "snapshot"
+      },
+      {
+        "sheet": "Details",
+        "old_range": "P9:P1008",
+        "selector": "Z9:Z1008",
+        "type": "AcctCodes",
+        "choices": 116,
+        "refresh": "live_sync"
+      }
+    ],
+    "note": "نام اقلام اصلی به Sync پیوند دارد؛ نام قرارداد، نرخ و شناسه بار snapshot است. اصل و نسخه اصلاحی را جدا نگه دارید."
+  },
+  {
+    "file": "Staff.xlsx",
+    "sha256_before": "b97a03c2eca7700e9db4c46ea3fce1639af9c82d051b055003b57d9141f32ba6",
+    "sha256_after": "2b476c9a42e9b0360834a5e9cce694b51a7d3eae8624e93879f50386423c40bd",
+    "selectors": [
+      {
+        "sheet": "Entry",
+        "old_range": "D9:D1008",
+        "selector": "X9:X1008",
+        "type": "AcctCodes",
+        "choices": 116,
+        "refresh": "live_sync"
+      },
+      {
+        "sheet": "Entry",
+        "old_range": "L9:L1008",
+        "selector": "Y9:Y1008",
+        "type": "WageCodes",
+        "choices": 6,
+        "refresh": "snapshot"
+      },
+      {
+        "sheet": "Entry",
+        "old_range": "R9:R1008",
+        "selector": "Z9:Z1008",
+        "type": "DealCodes",
+        "choices": 1,
+        "refresh": "snapshot"
+      }
+    ],
+    "note": "نام اقلام اصلی به Sync پیوند دارد؛ نام قرارداد، نرخ و شناسه بار snapshot است. اصل و نسخه اصلاحی را جدا نگه دارید."
+  },
+  {
+    "file": "Txn.xlsx",
+    "sha256_before": "c159a2dfc927f88e5f1c9c13b81bffbd45bfed39ad4e52903f177582a1213bf0",
+    "sha256_after": "653032f1f37681646950b246e4843b57b3af041dd12dc1ae691d1d3e56fb6a45",
+    "selectors": [
+      {
+        "sheet": "Entry",
+        "old_range": "G9:G1008",
+        "selector": "AG9:AG1008",
+        "type": "BankCodes",
+        "choices": 10,
+        "refresh": "live_sync"
+      },
+      {
+        "sheet": "Entry",
+        "old_range": "H9:H1008",
+        "selector": "AH9:AH1008",
+        "type": "BankCodes",
+        "choices": 10,
+        "refresh": "live_sync"
+      },
+      {
+        "sheet": "Entry",
+        "old_range": "K9:K1008",
+        "selector": "AI9:AI1008",
+        "type": "DealCodes",
+        "choices": 1,
+        "refresh": "snapshot"
+      }
+    ],
+    "note": "نام اقلام اصلی به Sync پیوند دارد؛ نام قرارداد، نرخ و شناسه بار snapshot است. اصل و نسخه اصلاحی را جدا نگه دارید."
+  },
+  {
+    "file": "Weigh.xlsx",
+    "sha256_before": "427e4c42199963daa367e04d44a73de2bc1012125184cc5e9fe33db96f2cdb6e",
+    "sha256_after": "72d4c00274a4b49b9db4d908277953f7a8c4d791cbd4d7c610b391c1e2452905",
+    "selectors": [
+      {
+        "sheet": "Entry",
+        "old_range": "G9:G1008",
+        "selector": "AR9:AR1008",
+        "type": "BasketCodes",
+        "choices": 13,
+        "refresh": "live_sync"
+      },
+      {
+        "sheet": "Entry",
+        "old_range": "H9:H1008",
+        "selector": "AS9:AS1008",
+        "type": "ProductCodes",
+        "choices": 28,
+        "refresh": "live_sync"
+      },
+      {
+        "sheet": "Entry",
+        "old_range": "R9:R1008",
+        "selector": "AT9:AT1008",
+        "type": "StoreCodes",
+        "choices": 11,
+        "refresh": "live_sync"
+      },
+      {
+        "sheet": "Entry",
+        "old_range": "S9:S1008",
+        "selector": "AU9:AU1008",
+        "type": "StoreCodes",
+        "choices": 11,
+        "refresh": "live_sync"
+      },
+      {
+        "sheet": "Entry",
+        "old_range": "W9:W1008",
+        "selector": "AV9:AV1008",
+        "type": "DealCodes",
+        "choices": 1,
+        "refresh": "snapshot"
+      },
+      {
+        "sheet": "Entry",
+        "old_range": "D9:D1008",
+        "selector": "AW9:AW1008",
+        "type": "AcctInput",
+        "choices": 116,
+        "refresh": "live_sync"
+      }
+    ],
+    "note": "نام اقلام اصلی به Sync پیوند دارد؛ نام قرارداد، نرخ و شناسه بار snapshot است. اصل و نسخه اصلاحی را جدا نگه دارید."
+  }
+]
