@@ -7,7 +7,7 @@ import os
 import json
 import jdatetime
 from fastapi import FastAPI,Request,HTTPException
-from fastapi.responses import FileResponse,JSONResponse
+from fastapi.responses import FileResponse,JSONResponse,HTMLResponse
 from filelock import Timeout
 from app.store import Store,Conflict
 from app.security import Security
@@ -23,7 +23,7 @@ def create_app(root=None,demo=None):
     synthetic=any(r['key']=='mode' and r['value']=='نمونه آموزشی' for r in store.read()['Info'])
     if demo and not synthetic:raise RuntimeError('حالت نمایشی روی دفتر واقعی مجاز نیست')
     security=Security(root,demo,cookie_name='maz_dashboard_session',existing_only=True)
-    app=FastAPI(title='مازندشت | داشبورد فقط‌خواندنی',version='0.6.0',docs_url=None,redoc_url=None,openapi_url=None)
+    app=FastAPI(title='مازندشت | داشبورد فقط‌خواندنی',version='0.7.0',docs_url=None,redoc_url=None,openapi_url=None)
     app.state.store=store;app.state.security=security
 
     def read_data():
@@ -50,7 +50,7 @@ def create_app(root=None,demo=None):
         response.headers['Cache-Control']='no-store'
         response.headers['X-Content-Type-Options']='nosniff'
         response.headers['Referrer-Policy']='same-origin'
-        response.headers['Content-Security-Policy']="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'"
+        response.headers['Content-Security-Policy']="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' https://api.open-meteo.com; font-src 'self' data:; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'"
         return response
 
     @app.exception_handler(RuleError)
@@ -63,10 +63,16 @@ def create_app(root=None,demo=None):
     # Explicit asset allowlist: never publish the central-entry client or repository.
     @app.get('/static/{name}')
     def asset(name:str):
-        if name not in ['reports.js','style.css','dashboard.css','print.css']:raise HTTPException(404)
+        if name not in ['reports.js','portable.js','style.css','dashboard.css','print.css']:raise HTTPException(404)
         return FileResponse(BASE/'static'/name)
+    @app.get('/viewer')
+    def portable():return HTMLResponse((BASE/'static/dashboard.html').read_text().replace('<body>','<body data-mode="portable">'))
+    @app.get('/static/fonts/{name}')
+    def font(name:str):
+        if name not in ['vazirmatn-arabic-400-normal.woff2','vazirmatn-arabic-700-normal.woff2']:raise HTTPException(404)
+        return FileResponse(BASE/'static/fonts'/name,media_type='font/woff2')
     @app.get('/api/health')
-    def health():return {'ok':True,'version':'0.6.0','mode':'read_only_dashboard','demo':synthetic,'today':jdatetime.date.today().strftime('%Y/%m/%d')}
+    def health():return {'ok':True,'version':'0.7.0','mode':'read_only_dashboard','demo':synthetic,'today':jdatetime.date.today().strftime('%Y/%m/%d')}
     @app.post('/api/login')
     async def login(request:Request):
         if demo:raise HTTPException(400,'پیش‌نمایش ساختگی به ورود نیاز ندارد؛ صفحه را تازه کنید')

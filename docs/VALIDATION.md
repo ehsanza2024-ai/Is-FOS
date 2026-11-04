@@ -1,5 +1,18 @@
 # Validation evidence — 2026-11-04
 
+## Version 0.7 (current)
+
+Full suite observed: **89 passed, 1 warning in 193.64 seconds** (Linux/Python 3.11). The warning is the same Starlette/AnyIO deprecation. Added tests cover inherited account classification/custom posting snapshots, controlled contract stock, profit/loss allocation/reversal/period locks, authenticated encrypted report exports and viewer rejection, encryption wrong-key/tamper checks, explicit bank source units and party-code mismatches, all 125 imported rows/correction/selected commit, read-only bank continuity, and tamper-evident non-executing advisory records.
+
+Chromium acceptance observed: 14 report tabs at widths 1440/1280/390 without body overflow; browser versus Python P&L and full statements agree for party-filtered whole-ledger and three monthly snapshots; standalone file HTML decrypts; wrong password fails; weather success/503 tested with mocked responses, **not live weather**. Installed-entry HTTP gate was exercised by browser-local bootstrap on a synthetic copy (not the native Windows shell): unified report iframe, quick party definition preserves entered amount, definitions, local advisor, encrypted download, 125-row pagination and one explicitly selected commit. JavaScript errors: `[]`. A stale-response race exposed by download/preview was fixed; backend CAS had correctly rejected the stale write.
+
+Real bank continuity review and all identifying details remain private. No bank rows or historical candidates were financially posted. The 14 repaired legacy files are unchanged in 0.7; prior preservation evidence below is not a new Excel calculation audit.
+
+**Still NOT RUN:** native Windows/WebView2 and Linux GUI, actual Safari/iOS, Excel Desktop/Office 2013 recalculation, physical print, owner-network HTTPS/VPN, live weather availability, 50k-row mobile benchmark, and full accounting acceptance/migration. Full guide: `RELEASE_0.7_FA.md`.
+
+## Version 0.6 historical evidence
+
+
 ## Automated Python tests
 
 Command: `.venv/bin/python -m pytest -q --durations=5`

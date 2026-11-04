@@ -7,6 +7,7 @@ import hashlib, json, os, shutil, tempfile, uuid
 from filelock import FileLock
 from openpyxl import load_workbook
 from app import domain as d
+from app.extensions import defaults,POLICY,ALLOCATIONS,sharing,require_open,active_allocations
 from app.workbook import create, rows, indexed_rows, put, SCHEMAS, CAPACITY
 
 class Conflict(d.RuleError):pass
@@ -53,6 +54,12 @@ class Store:
                 with open(tmp,'rb') as stream:os.fsync(stream.fileno())
                 if fingerprint(self.path)!=before:raise Conflict('اکسل هنگام ذخیره تغییر کرد؛ خروجی جدید اعمال نشد')
                 os.replace(tmp,self.path)
+                try:
+                    from app.collaboration import record
+                    record(self.root,actor,'ledger.change',{'action':action,'before':before,'audit_hash':entry['hash']},fingerprint(self.path))
+                except Exception:
+                    import logging
+                    logging.exception('Evolution log unavailable after successful XLSX save; XLSX Audit remains authoritative')
             finally:
                 if os.path.exists(tmp):os.unlink(tmp)
 
@@ -69,18 +76,19 @@ class Store:
         with self.lock:
             w=load_workbook(self.path);self.verify_audit(w)
             data={sn:rows(w,sn) for sn in ['Parties','Baskets','Products','Stores','Banks','Deals','Info','Weigh','Events','Checks','Audit']}
+            for sn,records in defaults().items():data[sn]=rows(w,sn) if sn in w else records
             revision=fingerprint(self.path)
         for e in data['Events']:
             e['date']=d.date(e['date'])
-            if e['kind'] not in d.KINDS:raise d.RuleError('نوع رویداد موجود در اکسل پشتیبانی نمی‌شود')
-            if e.get('deal') and e.get('status')=='قطعی':raise d.RuleError('سند شراکتی در دفتر تازه نیازمند تطبیق تخصصی است')
+            if e['kind'] not in d.KINDS and not (e.get('debit_snapshot') and e.get('credit_snapshot')):raise d.RuleError('نوع رویداد یا نگاشت تاریخی اکسل معتبر نیست')
+            if e.get('deal') and e.get('status')=='قطعی' and not any(c['name']==e['deal'] and c.get('policy')==POLICY for c in data['Deals']):raise d.RuleError('سیاست حسابداری شراکت تعیین نشده است')
             e['qty']=str(d.decimal(e.get('qty') or 0));e['rate']=d.money(e.get('rate') or 0)
             e['amount']=int((Decimal(e['qty'])*e['rate']).quantize(Decimal('1'),rounding=d.ROUND_HALF_UP)) if e['kind'] in ['خرید','فروش'] else d.money(e.get('input_amount') or 0)
             sign=d.decimal(e['sign'] if e.get('sign') is not None else 1,minimum=Decimal('-1'))
             if sign not in [Decimal('-1'),Decimal('1')]:raise d.RuleError('ضریب سند اکسل باید ۱ یا منفی ۱ باشد')
             e['sign']=int(sign);e['cost']=d.money(e.get('cost') or 0)
             d.money(e['amount'])
-            for k in ['effective_amount','debit_account','credit_account']+[x for x in SCHEMAS['Events'] if x.endswith('_id')]:e.pop(k,None)
+            for k in ['effective_amount','debit_account','credit_account','signed_qty']+[x for x in SCHEMAS['Events'] if x.endswith('_id')]:e.pop(k,None)
         for c in data['Checks']:
             c['date']=d.date(c['date']);c['due']=d.date(c['due'])
             if c.get('amount') in [None,'']:raise d.RuleError('مبلغ چک در اکسل خالی است؛ صفر فرض نشد')
@@ -90,7 +98,7 @@ class Store:
             r['date']=d.date(r['date'])
             try:r['net']=str(d.net_weight(r['gross'],r['count'],r['tare'],r.get('loss') or 0,r.get('waste') or 0))
             except d.RuleError:r['net']=None
-        data.update(revision=revision,stock=self.stock(data['Events']),trial=self.trial(data['Events']))
+        data.update(revision=revision,stock=self.stock(data['Events']),trial=self.trial(data['Events'],data['Accounts']))
         return data
 
     @staticmethod
@@ -103,27 +111,50 @@ class Store:
         return [{'product':k[0],'store':k[1],'qty':str(v)} for k,v in result.items()]
 
     @staticmethod
-    def trial(events):
-        result={n:{'id':c,'name':n,'category':cat,'debit':0,'credit':0,'balance':0} for c,n,cat in d.ACCOUNTS}
+    def trial(events,accounts=None):
+        chart=[(a['id'],a['name'],a['category']) for a in accounts] if accounts is not None else d.ACCOUNTS
+        result={n:{'id':c,'name':n,'category':cat,'debit':0,'credit':0,'balance':0} for c,n,cat in chart}
         for e in events:
             if e.get('status')!='قطعی':continue
             for line in d.posting(e):
+                if line['account'] not in result:raise d.RuleError('حساب سند در سرفصل‌ها تعریف نشده است')
                 r=result[line['account']];r['debit']+=line['debit']*int(e.get('sign') or 1);r['credit']+=line['credit']*int(e.get('sign') or 1);r['balance']=r['debit']-r['credit']
         return list(result.values())
 
     @staticmethod
-    def refs(w):return {sn:rows(w,sn) for sn in ['Parties','Baskets','Products','Stores','Banks','Deals']}
+    def refs(w):return {**{sn:rows(w,sn) for sn in ['Parties','Baskets','Products','Stores','Banks','Deals']},**{sn:rows(w,sn) if sn in w else records for sn,records in defaults().items()}}
 
     def add_ref(self,sheet,data,actor,revision):
-        if sheet not in ['Parties','Baskets','Products','Stores','Banks','Deals']:raise d.RuleError('نوع تعریف مجاز نیست')
+        if sheet not in ['Parties','Baskets','Products','Stores','Banks','Deals','Groups','Accounts','Operations']:raise d.RuleError('نوع تعریف مجاز نیست')
         item={k:d.normalize(data.get(k,'')) for k in SCHEMAS[sheet] if k!='id'};item['id']=uid()
         if not item['name'] or len(item['name'])>120:raise d.RuleError('نام باید بین ۱ و ۱۲۰ نویسه باشد')
         if sheet=='Baskets' and item['tare']!='':item['tare']=str(d.decimal(item['tare'],'تارا'))
         with self.edit(actor,'reference.create:'+sheet,revision) as w:
+            if sheet not in w:raise d.RuleError('ابتدا ارتقای ساختار ۱٫۱ را اجرا کنید')
             existing=rows(w,sheet)
+            if sheet=='Parties':
+                item['code']=item.get('code') or 'P'+str(max([int(x['code'][1:]) for x in existing if str(x.get('code') or '').startswith('P') and str(x['code'])[1:].isdigit()] or [0])+1).zfill(6)
+                if any(x.get('code')==item['code'] for x in existing):raise d.RuleError('کد شخص تکراری است')
+                item['active']=item.get('active') or 'بله'
+                if item.get('group') and item['group'] not in {r['name'] for r in rows(w,'Groups')}:raise d.RuleError('گروه شخص معتبر نیست')
+            if sheet=='Groups':
+                parent=next((x for x in rows(w,'Groups') if x['name']==item['parent']),None)
+                if item['parent'] and not parent:raise d.RuleError('گروه والد معتبر نیست')
+                item['category']=parent['category'] if parent else item['category']
+                if item['category'] not in ['asset','liability','equity','revenue','expense']:raise d.RuleError('طبقه ترازنامه یا سودوزیان لازم است')
+            if sheet=='Accounts':
+                group=next((x for x in rows(w,'Groups') if x['name']==item['group']),None)
+                if not group:raise d.RuleError('گروه حساب را انتخاب کنید')
+                item['category']=group['category'];item['active']='بله'
+            if sheet=='Operations':
+                chart={x['name'] for x in rows(w,'Accounts') if x['active']=='بله'}
+                if item['debit'] not in chart or item['credit'] not in chart or item['debit']==item['credit']:raise d.RuleError('حساب بدهکار و بستانکار فعال و متفاوت لازم است')
+                if {item['debit'],item['credit']} & {'موجودی کالا','بهای تمام‌شده'}:raise d.RuleError('عملیات موجودی فقط از خرید/فروش کنترل‌شده مجاز است')
+                item['active']='بله'
             if any(d.normalize(r['name'])==item['name'] for r in existing):raise d.RuleError('نام تکراری است؛ نام متمایز انتخاب کنید')
             if sheet=='Deals':
                 if item['partner'] not in {r['name'] for r in rows(w,'Parties')}:raise d.RuleError('نام شریک معتبر نیست')
+                if data.get('share_percent') not in [None,'']:item['share']=str(d.decimal(data['share_percent'],'درصد سهم')/100)
                 share=d.decimal(item['share'],'سهم')
                 if share>1:raise d.RuleError('سهم باید بین صفر و یک باشد')
                 item['start']=d.date(item['start']);item['end']=d.date(item['end'])
@@ -167,15 +198,22 @@ class Store:
             result=self._event(w,data)
         return result
 
-    def _event(self,w,data):
-        old=rows(w,'Events');stock={(x['product'],x['store']):Decimal(x['qty']) for x in self.stock(old)}
+    def _event(self,w,data,allocation=False):
+        old=rows(w,'Events');scope=[e for e in old if (e.get('deal') or '')==d.normalize(data.get('deal',''))]
+        stock={(x['product'],x['store']):Decimal(x['qty']) for x in self.stock(scope)}
         r=d.event(data,self.refs(w),stock)
-        if r['deal']:raise d.RuleError('قطعی‌سازی مالی شراکتی تا تعیین نگاشت مالکیت و صافی فعال نیست؛ باسکول شراکتی و قرارداد قابل ثبت‌اند')
+        chart={a['name'] for a in self.refs(w)['Accounts'] if a['active']=='بله'}
+        if r['debit_snapshot'] not in chart or r['credit_snapshot'] not in chart:raise d.RuleError('حساب نگاشت سند فعال نیست')
+        if r['kind'] in ALLOCATIONS and not allocation:raise d.RuleError('تخصیص شراکت فقط از تسویه کنترل‌شده دوره مجاز است')
+        if r['deal']:
+            contract=next(c for c in self.refs(w)['Deals'] if c['name']==r['deal'])
+            if contract.get('policy')!=POLICY:raise d.RuleError('سیاست شراکتی اصیل و تقسیم سود دوره باید صریحاً انتخاب شود؛ مالکیت مشترک خودکار فعال نیست')
+            if not allocation:require_open(old,r['deal'],r['date'])
         if r['reference'] and any(e.get('reference')==r['reference'] and e['kind']==r['kind'] for e in old):raise Conflict('مرجع تکراری است؛ سند دوباره ثبت نشد')
         if r['source_weigh']:
             weigh=next((x for x in rows(w,'Weigh') if x['id']==r['source_weigh']),None)
             if not weigh:raise d.RuleError('باسکول منبع یافت نشد')
-            if weigh.get('deal'):raise d.RuleError('باسکول شراکتی نمی‌تواند به سند عادی تبدیل شود؛ تطبیق مالکیت لازم است')
+            if (weigh.get('deal') or '')!=r['deal']:raise d.RuleError('قرارداد قبض و سند یکسان نیست')
             reversed_ids={e.get('reversal_of') for e in old if e.get('reversal_of')}
             if any(e.get('source_weigh')==r['source_weigh'] and int(e.get('sign') or 1)==1 and e['id'] not in reversed_ids for e in old):raise Conflict('این باسکول قبلاً به سند فعال متصل شده است')
             if r['kind'] not in ['خرید','فروش'] or any(r[k]!=weigh[k] for k in ['party','product','store']):raise d.RuleError('اطلاعات سند با باسکول منبع یکسان نیست')
@@ -189,12 +227,37 @@ class Store:
             events=rows(w,'Events');e=next((r for r in events if r['id']==entity),None)
             if not e:raise d.RuleError('سند پیدا نشد')
             if e.get('reversal_of') or any(r.get('reversal_of')==entity for r in events):raise d.RuleError('سند قبلاً برگشت خورده یا خودش برگشت است')
+            if e.get('deal') and e['kind'] not in ALLOCATIONS:require_open(events,e['deal'],int(e['date']))
             if e['kind']=='خرید':
-                stock={(s['product'],s['store']):Decimal(s['qty']) for s in self.stock(events)}
+                stock={(s['product'],s['store']):Decimal(s['qty']) for s in self.stock([x for x in events if (x.get('deal') or '')==(e.get('deal') or '')])}
                 if stock.get((e['product'],e['store']),0)<Decimal(str(e['qty'])):raise d.RuleError('برگشت خرید باعث موجودی منفی می‌شود')
-            r={k:v for k,v in e.items() if k not in ['effective_amount','debit_account','credit_account'] and not k.endswith('_id')}
+            r={k:v for k,v in e.items() if k not in ['effective_amount','debit_account','credit_account','signed_qty'] and not k.endswith('_id')}
             r.update(id=uid(),sign=-1,reversal_of=entity,reference='برگشت '+entity,note=d.normalize(reason));put(w,'Events',r)
         return r
+
+    def settle(self,deal,start,end,actor,revision):
+        with self.edit(actor,'partnership.allocate:'+deal,revision) as w:
+            current=self.read();summary=sharing(current,deal,start,end)
+            if summary['policy']!=POLICY:raise d.RuleError('سیاست قرارداد تأیید نشده است')
+            if any(int(e['period_start'])<=summary['end'] and int(e['period_end'])>=summary['start'] for e in active_allocations(current['Events'],deal)):
+                raise Conflict('بازه تخصیص با دوره ثبت‌شده همپوشانی دارد')
+            amount=summary['partner_share_amount']
+            if amount==0:raise d.RuleError('سهم شریک در این دوره صفر است؛ سند مالی صفر ساخته نمی‌شود')
+            record=self._event(w,{'kind':'تخصیص سود شریک' if amount>0 else 'تخصیص زیان شریک','date':summary['end'],'party':summary['partner'],'deal':deal,'amount':abs(amount),'reference':'ALLOC-'+uid(),'note':'تخصیص دوره؛ پرداخت بانکی جداگانه است'},allocation=True)
+            n=next(n for n,r in indexed_rows(w,'Events') if r['id']==record['id'])
+            put(w,'Events',{'period_start':summary['start'],'period_end':summary['end'],'share':summary['company_share']},n)
+        return {**summary,'event_id':record['id']}
+
+    def update_ref(self,sheet,entity,changes,actor,revision):
+        allowed={'Parties':{'role','active','group','note'},'Groups':{'note'},'Accounts':{'note','active'},'Operations':{'note','active'},'Deals':{'note'}}
+        if sheet not in allowed or set(changes)-allowed[sheet]:raise d.RuleError('تغییر نگاشت، نام یا درصد تاریخی از این مسیر مجاز نیست؛ تعریف جدید بسازید')
+        with self.edit(actor,'reference.details:'+sheet,revision) as w:
+            found=next(((n,r) for n,r in indexed_rows(w,sheet) if r['id']==entity),None)
+            if not found:raise d.RuleError('تعریف پیدا نشد')
+            if 'active' in changes and changes['active'] not in ['بله','خیر']:raise d.RuleError('وضعیت فعال باید بله یا خیر باشد')
+            if changes.get('group') and changes['group'] not in {r['name'] for r in self.refs(w)['Groups']}:raise d.RuleError('گروه معتبر نیست')
+            put(w,sheet,{k:d.normalize(v) for k,v in changes.items()},found[0])
+        return {'ok':True}
 
     def add_check(self,data,actor,revision):
         r={k:d.normalize(data.get(k,'')) for k in SCHEMAS['Checks'] if k not in ['id','state']}

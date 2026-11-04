@@ -61,14 +61,16 @@ ACCOUNTS=[('1000','صندوق','asset'),('1010','بانک','asset'),
 
 def event(data,refs,stock):
     kind=data.get('kind','')
-    if kind not in KINDS:raise RuleError('نوع رویداد معتبر نیست')
+    operations={r['name']:r for r in refs.get('Operations',[]) if r.get('active')=='بله'}
+    if kind not in KINDS and kind not in operations:raise RuleError('نوع رویداد معتبر یا فعال نیست')
     result={k:normalize(data.get(k,'')) for k in ['party','product','store','bank','reference','note','deal','source_weigh']}
     result.update(date=date(data.get('date')),kind=kind)
     for key,sheet in [('party','Parties')]:
         if result[key] not in {r['name'] for r in refs[sheet]}:raise RuleError('طرف حساب معتبر را با نام انتخاب کنید')
     for key,sheet in [('bank','Banks'),('deal','Deals')]:
         if result[key] and result[key] not in {r['name'] for r in refs[sheet]}:raise RuleError('نام '+key+' معتبر نیست')
-    if kind in ['دریافت','پرداخت','هزینه','سرمایه'] and not result['bank']:raise RuleError('حساب بانکی لازم است')
+    pair=KINDS.get(kind) or (operations[kind]['debit'],operations[kind]['credit'])
+    if (kind in ['دریافت','پرداخت','هزینه','سرمایه'] or 'بانک' in pair) and not result['bank']:raise RuleError('حساب بانکی لازم است')
     qty=Decimal('0');rate=0;cost=0
     if kind in ['خرید','فروش']:
         for key,sheet in [('product','Products'),('store','Stores')]:
@@ -84,11 +86,11 @@ def event(data,refs,stock):
     else:amount=money(data.get('amount'),data.get('unit','IRR'))
     money(amount)  # bound after multiplication too
     if amount<=0:raise RuleError('مبلغ باید مثبت باشد')
-    result.update(qty=str(qty),rate=rate,amount=amount,cost=cost)
+    result.update(qty=str(qty),rate=rate,amount=amount,cost=cost,debit_snapshot=pair[0],credit_snapshot=pair[1])
     if result['deal']:
         d=next(r for r in refs['Deals'] if r['name']==result['deal'])
         if d.get('status')!='تأیید' or not int(d['start'])<=result['date']<=int(d['end']):raise RuleError('قرارداد شراکت تأیید نشده یا خارج از دوره است')
-        if d.get('product') and d['product']!=result['product']:raise RuleError('محصول با قرارداد شراکت ناسازگار است')
+        if kind in ['خرید','فروش'] and d.get('product') and d['product']!=result['product']:raise RuleError('محصول با قرارداد شراکت ناسازگار است')
         share=decimal(d['share'],'سهم ما')
         if share>1:raise RuleError('سهم قرارداد باید بین صفر و یک باشد')
         result['share']=str(share)
@@ -96,7 +98,11 @@ def event(data,refs,stock):
     return result
 
 def posting(e):
-    dr,cr=KINDS[e['kind']];amount=int(e['amount'])
+    pair=(e.get('debit_snapshot'),e.get('credit_snapshot'))
+    if not all(pair):
+        if e['kind'] not in KINDS:raise RuleError('نگاشت تاریخی سند موجود نیست')
+        pair=KINDS[e['kind']]
+    dr,cr=pair;amount=int(e['amount'])
     lines=[{'account':dr,'debit':amount,'credit':0},{'account':cr,'debit':0,'credit':amount}]
     if e['kind']=='فروش':lines += [{'account':'بهای تمام‌شده','debit':int(e['cost']),'credit':0},{'account':'موجودی کالا','debit':0,'credit':int(e['cost'])}]
     if sum(x['debit'] for x in lines)!=sum(x['credit'] for x in lines):raise RuleError('سند نامتوازن است')

@@ -18,7 +18,7 @@ def build_report(data,start=None,end=None,party=None):
     asof=[e for e in all_asof if not party or e['party']==party]
     period=[e for e in asof if not start or e['date']>=start]
     before=[e for e in asof if start and e['date']<start]
-    trial=Store.trial(period);closing=Store.trial(all_asof)
+    trial=Store.trial(period,data.get('Accounts'));closing=Store.trial(all_asof,data.get('Accounts'))
     category=lambda cat:sum(r['balance'] for r in closing if r['category']==cat)
     income=sum(-r['balance'] for r in trial if r['category']=='revenue')
     expenses=sum(r['balance'] for r in trial if r['category']=='expense')
@@ -52,10 +52,12 @@ def build_report(data,start=None,end=None,party=None):
     return {
         'revision':data['revision'],'generated_at':datetime.now(timezone.utc).isoformat(),'unit':'IRR',
         'filters':{'from':start,'to':end,'party':party or ''},
-        'profit_loss':{'revenue':income,'cogs':byname['بهای تمام‌شده'],'operating_expense':byname['هزینه عملیاتی'],'wages':byname['هزینه دستمزد'],'expenses':expenses,'net_profit':income-expenses},
+        'profit_loss':{'revenue':income,'cogs':byname['بهای تمام‌شده'],'operating_expense':byname['هزینه عملیاتی'],'wages':byname['هزینه دستمزد'],'expenses':expenses,'net_profit':income-expenses,'partner_profit_expense':byname.get('سهم سود شریک',0),'partner_loss_income':-byname.get('سهم زیان شریک',0)},
         'balance_sheet':sheet,'trial':trial,'parties':parties,'banks':[{'name':k,'balance':v} for k,v in banks.items()],
         'statement':{'opening':opening,'closing':running,'rows':statements},
         'unbilled_receipts':pending,'stock':Store.stock(all_asof),
+        'partnerships':partnership_reports(data,start,end),
+        'events':[{**e,'lines':posting(e)} for e in period],'groups':data.get('Groups',[]),
         'checks':[c for c in data['Checks'] if not party or c['party']==party],
         'counts':{'posted_period':len(period),'pending_receipts':len(pending),'open_checks':sum(c['state'] not in ['وصول‌شده','باطل‌شده'] for c in data['Checks'] if not party or c['party']==party)},
         'notes':['گزارش مدیریتی است؛ تأیید قانونی/مالیاتی نشده.', 'رسید فاکتورنشده یعنی قبض فاقد سند خرید/فروش متصل؛ وضعیت فاکتور کاغذی مستقل ثبت نشده.', 'وضعیت مالی، بانک و موجودی برای کل مجموعه تا تاریخ پایان هستند؛ وضعیت چک‌ها جاری است.', 'مانده مثبت شخص یعنی خالص طلب مجموعه؛ منفی یعنی خالص بدهی مجموعه.']
@@ -68,3 +70,14 @@ def exact_json(value):
     if isinstance(value,list):return [exact_json(v) for v in value]
     if isinstance(value,dict):return {k:exact_json(v) for k,v in value.items()}
     return value
+
+
+def partnership_reports(data,start=None,end=None):
+    from app.extensions import sharing
+    result=[]
+    for contract in data.get('Deals',[]):
+        a=max(start or int(contract['start']),int(contract['start']));b=min(end or int(contract['end']),int(contract['end']))
+        if a>b:continue
+        try:result.append(sharing(data,contract['name'],a,b))
+        except RuleError as e:result.append({'deal':contract['name'],'error':str(e)})
+    return result

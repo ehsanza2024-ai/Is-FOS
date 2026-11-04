@@ -75,6 +75,7 @@ const nav = [
   ["import", "استودیو ورود اطلاعات", "upload", "مدیریت داده"],
   ["refs", "تعاریف پایه و شراکت", "settings", ""],
   ["insights", "تحلیل مدیریتی", "spark", ""],
+  ["workbench", "همکاری و توسعه", "spark", ""],
   ["help", "راهنما و پشتیبان", "shield", ""],
 ];
 const titles = Object.fromEntries(nav.map((n) => [n[0], n[1]]));
@@ -85,10 +86,39 @@ const refTitles = {
   Stores: "انبارها",
   Banks: "بانک‌ها",
   Deals: "قرارداد شراکت",
+  Groups: "گروه و زیرگروه",
+  Accounts: "سرفصل حساب",
+  Operations: "نوع عملیات",
 };
 const refFields = {
+  Groups: [
+    ["name", "نام گروه"],
+    ["parent", "گروه والد (اختیاری)", "ref", "Groups"],
+    [
+      "category",
+      "طبقه ریشه",
+      "select",
+      ["asset", "liability", "equity", "revenue", "expense"],
+    ],
+    ["note", "یادداشت"],
+  ],
+  Accounts: [
+    ["name", "نام سرفصل"],
+    ["group", "گروه حساب", "ref", "Groups"],
+    ["category", "طبقه (از گروه تعیین می‌شود)"],
+    ["note", "یادداشت"],
+  ],
+  Operations: [
+    ["name", "عنوان عملیات"],
+    ["debit", "حساب بدهکار", "ref", "Accounts"],
+    ["credit", "حساب بستانکار", "ref", "Accounts"],
+    ["note", "یادداشت"],
+  ],
   Parties: [
     ["name", "نام طرف حساب"],
+    ["code", "کد (خالی = تخصیص خودکار)"],
+    ["group", "گروه (اختیاری)", "ref", "Groups"],
+    ["note", "توضیحات"],
     ["role", "نقش"],
     ["active", "فعال", "select", ["بله", "خیر"]],
   ],
@@ -102,7 +132,13 @@ const refFields = {
   Deals: [
     ["name", "عنوان قابل تشخیص قرارداد"],
     ["partner", "نام شریک", "ref", "Parties"],
-    ["share", "سهم ما از صفر تا یک", "number"],
+    ["share_percent", "درصد سهم مجموعه (۰ تا ۱۰۰)", "number"],
+    [
+      "policy",
+      "سیاست حسابداری",
+      "select",
+      ["نیاز به تعیین", "اصیل؛ تقسیم سود دوره"],
+    ],
     ["start", "شروع قرارداد"],
     ["end", "پایان قرارداد"],
     ["product", "محصول", "ref", "Products"],
@@ -140,12 +176,25 @@ function toast(text) {
   $("#toast").classList.add("show");
   setTimeout(() => $("#toast").classList.remove("show"), 4500);
 }
-const money = (v) => fa(unit === "IRT" ? Number(v) / 10 : v);
+const money = (v) => {
+  let n = BigInt(v || 0),
+    sign = n < 0n ? "−" : "";
+  if (n < 0n) n = -n;
+  return (
+    sign +
+    new Intl.NumberFormat("fa-IR").format(unit === "IRR" ? n : n / 10n) +
+    (unit === "IRT" && n % 10n ? "٫" + fa(n % 10n) : "")
+  );
+};
 const moneyLabel = () => (unit === "IRT" ? "تومان" : "ریال");
 const btn = (text, action, type = "", ico = "") =>
   `<button class="btn ${type}" data-action="${action}">${ico ? icon(ico) : ""}${text}</button>`;
+let stateEpoch = 0;
 async function refresh() {
-  S = await api("/api/state");
+  const epoch = ++stateEpoch;
+  const current = await api("/api/state");
+  if (epoch !== stateEpoch) return;
+  S = current;
   render();
 }
 function showLogin() {
@@ -166,15 +215,18 @@ function showLogin() {
 }
 function render() {
   if (!S) return;
-  app.innerHTML = `<div class="shell"><aside class="sidebar"><div class="brand"><div class="mark">${icon("leaf")}</div><div><h1>مازندشت</h1><small>MAZANDASHT</small></div></div><nav>${nav.map(([id, label, i, group]) => `${group ? `<div class="navgroup">${group}</div>` : ""}<button class="navitem ${page === id ? "active" : ""}" data-page="${id}" title="${label}">${icon(i)}<span>${label}</span></button>`).join("")}</nav><div class="sidebarfoot"><i class="pulse"></i><span>متصل به دفتر اکسل محلی</span></div></aside><section class="workspace"><header class="topbar"><div class="breadcrumb">مازندشت <span> / </span><b>${titles[page]}</b></div><div class="topactions"><span class="date">${esc(health?.today)} · دفتر محلی</span><button class="iconbtn" data-action="unit" title="تغییر واحد نمایش">${unit === "IRR" ? "ریال" : "تومان"}</button><button class="iconbtn" data-action="fullscreen" title="تمام صفحه">${icon("full")}</button><div class="profile"><span class="avatar">م</span><div><strong>${esc(S.user.name)}</strong><small>${esc(S.user.role)} · فضای ${S.demo ? "آموزشی" : "محلی"}</small></div></div><button class="iconbtn" data-action="logout" title="خروج">${icon("logout")}</button></div></header><main class="content"><div class="heading"><div><div class="eyebrow">MAZANDASHT / WORKSPACE</div><h2>${page === "dashboard" ? "همه‌چیز، در یک نگاه." : titles[page]}</h2><p>${subtitle()}</p></div><div class="buttons">${btn("خروجی اکسل", "export", "", "download")}${newButton()}</div></div>${S.demo ? `<div class="notice">${icon("shield")}محیط آموزشی با داده نمونه · اطلاعات تاریخی شما به این دفتر منتقل نشده است · نسخه توسعه، نه حسابداری تأییدشده</div>` : ""}<div id="pagecontent" class="pagecontent"></div><footer class="footnote"><span>${icon("shield")}ذخیره محلی · ریال صحیح · پشتیبان پیش از هر تغییر</span><span>مازندشت ۰٫۵ · ${S.demo ? "نمونه آموزشی" : "دفتر اکسل"} · ${esc(titles[page])}</span></footer></main></section></div>`;
+  app.innerHTML = `<div class="shell"><aside class="sidebar"><div class="brand"><div class="mark">${icon("leaf")}</div><div><h1>مازندشت</h1><small>MAZANDASHT</small></div></div><nav>${nav.map(([id, label, i, group]) => `${group ? `<div class="navgroup">${group}</div>` : ""}<button class="navitem ${page === id ? "active" : ""}" data-page="${id}" title="${label}">${icon(i)}<span>${label}</span></button>`).join("")}</nav><div class="sidebarfoot"><i class="pulse"></i><span>متصل به دفتر اکسل محلی</span></div></aside><section class="workspace"><header class="topbar"><div class="breadcrumb">مازندشت <span> / </span><b>${titles[page]}</b></div><div class="topactions"><span class="date">${esc(health?.today)} · دفتر محلی</span><button class="iconbtn" data-action="unit" title="تغییر واحد نمایش">${unit === "IRR" ? "ریال" : "تومان"}</button><button class="iconbtn" data-action="fullscreen" title="تمام صفحه">${icon("full")}</button><div class="profile"><span class="avatar">م</span><div><strong>${esc(S.user.name)}</strong><small>${esc(S.user.role)} · فضای ${S.demo ? "آموزشی" : "محلی"}</small></div></div><button class="iconbtn" data-action="logout" title="خروج">${icon("logout")}</button></div></header><main class="content"><div class="heading"><div><div class="eyebrow">MAZANDASHT / WORKSPACE</div><h2>${page === "dashboard" ? "همه‌چیز، در یک نگاه." : titles[page]}</h2><p>${subtitle()}</p></div><div class="buttons">${btn("خروجی اکسل", "export", "", "download")}${newButton()}</div></div><div id="pagecontent" class="pagecontent"></div><footer class="footnote"><span>${icon("shield")}ذخیره محلی · ریال صحیح · پشتیبان پیش از هر تغییر</span><span>مازندشت ۰٫۷ · ${S.demo ? "نمونه آموزشی" : "دفتر اکسل"} · ${esc(titles[page])}</span></footer></main></section></div>`;
   $("#pagecontent").className =
     page === "dashboard"
       ? "pagecontent dashcontents"
       : "pagecontent normalcontents";
-  if (page === "dashboard") dashboard();
+  if (page === "dashboard")
+    $("#pagecontent").innerHTML =
+      '<iframe class="unified-reports" title="داشبورد یکپارچه گزارش" src="/reports"></iframe>';
   else if (page === "import") importPage();
   else if (page === "help") help();
   else if (page === "insights") insights();
+  else if (page === "workbench") workbench();
   else listPage();
 }
 function subtitle() {
@@ -205,75 +257,6 @@ function newButton() {
       "plus",
     );
   return btn("پنل گزارش‌ها", "reports", "", "chart");
-}
-function stats() {
-  const t = S.trial;
-  const bal = (n) => t.find((x) => x.name === n)?.balance || 0;
-  const revenue = -bal("درآمد فروش"),
-    cost = bal("بهای تمام‌شده") + bal("هزینه عملیاتی") + bal("هزینه دستمزد");
-  return {
-    revenue,
-    profit: revenue - cost,
-    bank: bal("بانک"),
-    stock: S.stock.reduce((a, x) => a + Number(x.qty), 0),
-  };
-}
-function dashboard() {
-  let st = stats(),
-    events = S.Events.filter((e) => e.status === "قطعی");
-  $("#pagecontent").innerHTML = `<div class="cards">${[
-    [
-      "فروش ثبت‌شده",
-      st.revenue,
-      moneyLabel(),
-      "sale",
-      "منبع: دفترکل درآمد فروش",
-    ],
-    ["موجودی بانک", st.bank, moneyLabel(), "bank", "منبع: گردش حساب بانک"],
-    [
-      "موجودی محصول",
-      st.stock,
-      "کیلوگرم",
-      "stock",
-      "اسناد قطعی خرید منهای فروش",
-    ],
-    [
-      "سود خالص",
-      st.profit,
-      moneyLabel(),
-      "report",
-      "درآمد منهای بهای تمام‌شده و هزینه",
-    ],
-  ]
-    .map(
-      ([name, value, u, i, source]) =>
-        `<div class="card"><div class="stathead">${name}${icon(i)}</div><div class="statnum">${innerWidth < 500 ? new Intl.NumberFormat("fa-IR", { notation: "compact", maximumFractionDigits: 1 }).format(u === "کیلوگرم" ? value : unit === "IRT" ? value / 10 : value) : u === "کیلوگرم" ? fa(value) : money(value)} <span>${u}</span></div><div class="statfoot"><b>●</b>${source}</div></div>`,
-    )
-    .join(
-      "",
-    )}</div><div class="dashgrid"><div class="dashleft"><section class="panel chartpanel"><div class="panelhead"><h3>روند خرید و فروش</h3><div class="chartlegend"><span><i class="dot"></i>فروش</span><span><i class="dot light"></i>خرید</span></div></div><div class="chart">${chart(events)}</div></section><section class="panel recent"><div class="panelhead"><h3>آخرین رویدادهای مالی</h3><button class="btn" data-page="ledger">مشاهده دفترکل ${icon("arrow")}</button></div><div class="tablewrap">${eventTable(events.slice(-Math.min(4, rowsPerPage())).reverse(), false)}</div></section></div><aside class="panel"><div class="panelhead"><h3>سلامت دفتر</h3>${badge("کنترل محلی")}</div><div class="summarylist"><div class="summaryitem"><span>توازن بدهکار و بستانکار</span><strong>${money(S.trial.reduce((a, x) => a + x.balance, 0))} ${moneyLabel()}</strong></div><div class="summaryitem"><span>چک‌های باز</span><strong>${fa(S.Checks.filter((x) => !["وصول‌شده", "باطل‌شده"].includes(x.state)).length)} فقره</strong></div><div class="summaryitem"><span>قبض‌های باسکول</span><strong>${fa(S.Weigh.length)} قبض</strong></div><div class="summaryitem"><span>قرارداد نیازمند بازبینی</span><strong>${fa(S.Deals.filter((x) => x.status !== "تأیید").length)} مورد</strong></div><div class="summaryitem"><span>سبد با تارای نامشخص</span><strong>${fa(S.Baskets.filter((x) => x.tare === null || x.tare === "").length)} نوع</strong></div></div><div class="greenbox"><strong>${icon("leaf")} همراه دفتر شما</strong>همه اعداد این صفحه از فایل اکسل استخراج می‌شوند. انتخاب نام در فرم‌ها انجام می‌شود؛ کدها در پس‌زمینه باقی می‌مانند.</div></aside></div>`;
-}
-function chart(events) {
-  let months = [...new Set(events.map((e) => String(e.date).slice(0, 6)))]
-    .sort()
-    .slice(-6);
-  if (!months.length)
-    return `<div class="empty">پس از ثبت اولین سند، نمودار واقعی نمایش داده می‌شود.</div>`;
-  const values = months.map((m) =>
-    ["فروش", "خرید"].map((k) =>
-      events
-        .filter((e) => e.kind === k && String(e.date).startsWith(m))
-        .reduce((a, e) => a + e.amount * e.sign, 0),
-    ),
-  );
-  let max = Math.max(1, ...values.flat());
-  return `<svg viewBox="0 0 600 160" role="img" aria-label="نمودار خرید و فروش ثبت‌شده">${[25, 65, 105].map((y) => `<path d="M30 ${y}H580" stroke="#edf1e7" stroke-dasharray="4 4"/>`).join("")}${months
-    .map((m, i) => {
-      let x = 60 + (i * 500) / months.length,
-        v = values[i];
-      return `<rect x="${x}" y="${130 - (Math.max(0, v[0]) / max) * 105}" width="22" height="${(Math.max(0, v[0]) / max) * 105}" fill="#315d42" rx="3"/><rect x="${x + 26}" y="${130 - (Math.max(0, v[1]) / max) * 105}" width="22" height="${(Math.max(0, v[1]) / max) * 105}" fill="#bdcf9c" rx="3"/><text x="${x + 24}" y="151" text-anchor="middle" font-size="10" fill="#8a9b7c">${m.slice(0, 4)}/${m.slice(4)}</text>`;
-    })
-    .join("")}</svg>`;
 }
 function rowsPerPage() {
   return Math.max(3, Math.min(12, Math.floor((innerHeight - 390) / 44)));
@@ -331,7 +314,7 @@ function listRecords() {
         ? x.kind === "فروش"
         : page === "bank"
           ? ["دریافت", "پرداخت", "سرمایه"].includes(x.kind)
-          : ["هزینه", "دستمزد"].includes(x.kind),
+          : !["خرید", "فروش", "دریافت", "پرداخت", "سرمایه"].includes(x.kind),
   );
 }
 function listPage() {
@@ -372,11 +355,11 @@ function renderList(records) {
   if (page === "refs") {
     let fields = refFields[tab];
     return table(
-      ["ردیف", ...fields.map((x) => x[1])],
+      ["ردیف", ...fields.map((x) => x[1]), "تکمیل جزئیات"],
       records
         .map(
           (r, i) =>
-            `<tr><td>${fa((pageNum - 1) * rowsPerPage() + i + 1)}</td>${fields.map(([k]) => `<td>${k === "share" ? fa(Number(r[k]) * 100) + "٪" : r[k] === null || r[k] === "" ? badge("تکمیل نشده", "amber") : esc(r[k])}</td>`).join("")}</tr>`,
+            `<tr><td>${fa((pageNum - 1) * rowsPerPage() + i + 1)}</td>${fields.map(([k]) => `<td>${k === "share_percent" ? fa(Number(r.share) * 100) + "٪" : r[k] === null || r[k] === "" ? badge("تکمیل نشده", "amber") : esc(fieldLabels[r[k]] || r[k])}</td>`).join("")}<td><button class="btn" data-details="${esc(r.id)}">تکمیل جزئیات</button></td></tr>`,
         )
         .join(""),
     );
@@ -439,7 +422,7 @@ function renderList(records) {
       records
         .map(
           (r) =>
-            `<tr><td><strong>${esc(r.number)}</strong></td><td>${esc(r.direction)}</td><td>${esc(r.party)}</td><td>${esc(r.bank)}</td><td>${money(r.amount)}</td><td>${fmtDate(r.due)}</td><td>${badge(r.state)}</td><td>${(S.check_transitions[r.state] || []).length ? `<select data-check="${esc(r.id)}" aria-label="تغییر وضعیت چک"><option value="">انتخاب وضعیت</option>${S.check_transitions[r.state].map((x) => `<option>${esc(x)}</option>`).join("")}</select>` : "—"}</td></tr>`,
+            `<tr><td><strong>${esc(r.number)}</strong></td><td>${esc(r.direction)}</td><td>${esc(r.party)}</td><td>${esc(r.bank)}</td><td>${money(r.amount)}</td><td>${fmtDate(r.due)}</td><td>${badge(r.state)}</td><td>${(S.check_transitions[r.state] || []).length ? `<select data-check="${esc(r.id)}" aria-label="تغییر وضعیت چک"><option value="">انتخاب وضعیت</option>${S.check_transitions[r.state].map((x) => `<option>${esc(fieldLabels[x] || x)}</option>`).join("")}</select>` : "—"}</td></tr>`,
         )
         .join(""),
     );
@@ -452,12 +435,12 @@ function field(
 ) {
   let input;
   if (type === "ref")
-    input = `<select name="${name}"><option value="">انتخاب ${label}…</option>${S[options].map((x) => `<option value="${esc(x.name)}" ${x.name === value ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select>`;
+    input = `<select data-ref="${options}" name="${name}"><option value="">انتخاب ${label}…</option>${S[options].map((x) => `<option value="${esc(x.name)}" ${x.name === value ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select>`;
   else if (type === "select")
-    input = `<select name="${name}">${options.map((x) => `<option value="${esc(x)}" ${x === value ? "selected" : ""}>${esc(x)}</option>`).join("")}</select>`;
+    input = `<select name="${name}">${options.map((x) => `<option value="${esc(x)}" ${x === value ? "selected" : ""}>${esc(fieldLabels[x] || x)}</option>`).join("")}</select>`;
   else
     input = `<input name="${name}" type="${type === "number" ? "text" : type}" ${type === "number" ? 'inputmode="decimal"' : ""} value="${esc(value)}" ${name === "date" || name === "due" || name === "start" || name === "end" ? 'placeholder="۱۴۰۵/۰۸/۱۳"' : ""} ${name === "name" ? "required" : ""}>`;
-  return `<div class="field ${full ? "full" : ""}"><label>${label}</label>${input}</div>`;
+  return `<div class="field ${full ? "full" : ""}"><label>${label}${type === "ref" && ["Parties", "Groups", "Accounts"].includes(options) ? ` <button type="button" class="quick-link" data-quick="${options}" data-target="${name}">＋ تعریف سریع</button>` : ""}</label>${input}</div>`;
 }
 function openModal(title, content, onSubmit, submit = "ثبت و ذخیره") {
   modal.innerHTML = `<form id="entryform"><div class="modalhead"><h3>${title}</h3><button type="button" class="iconbtn" data-action="close">${icon("close")}</button></div><div class="modalbody"><div class="formgrid">${content}</div><div class="formerror" id="formerror" role="alert"></div></div><div class="modalfoot"><button type="button" class="btn" data-action="close">انصراف</button><button class="btn primary" type="submit">${submit}</button></div></form>`;
@@ -469,8 +452,8 @@ function openModal(title, content, onSubmit, submit = "ثبت و ذخیره") {
     $("#formerror").textContent = "";
     try {
       await onSubmit(Object.fromEntries(new FormData(e.target)));
-      modal.close();
       await refresh();
+      modal.close();
       toast("اطلاعات در فایل اکسل ذخیره شد؛ پشتیبان قبلی محفوظ است.");
     } catch (err) {
       $("#formerror").textContent = err.message;
@@ -580,12 +563,30 @@ function eventFields(kind, v = {}) {
     page === "bank"
       ? ["دریافت", "پرداخت", "سرمایه"]
       : page === "cost"
-        ? ["هزینه", "دستمزد"]
+        ? [
+            ...new Set([
+              "هزینه",
+              "دستمزد",
+              ...(S.Operations || [])
+                .filter(
+                  (x) =>
+                    x.active === "بله" &&
+                    ![
+                      "خرید",
+                      "فروش",
+                      "تخصیص سود شریک",
+                      "تخصیص زیان شریک",
+                    ].includes(x.name),
+                )
+                .map((x) => x.name),
+            ]),
+          ]
         : [kind];
   let fields = [
     ["date", "تاریخ شمسی"],
     ["kind", "نوع رویداد", "select", kinds],
     ["party", "طرف حساب", "ref", "Parties"],
+    ["deal", "قرارداد شراکت (اختیاری)", "ref", "Deals"],
   ];
   if (["خرید", "فروش"].includes(kind))
     fields.push(
@@ -618,7 +619,7 @@ function eventFields(kind, v = {}) {
         ),
       )
       .join("") +
-    '<div class="calculation">ثبت قطعی، سند دوبل متوازن ایجاد می‌کند. اصلاح فقط با برگشت سند است. شراکت مالی خودکار در این نسخه فعال نیست.</div>'
+    '<div class="calculation">ثبت قطعی، سند دوبل متوازن ایجاد می‌کند. اصلاح فقط با برگشت سند است. شراکت فقط با سیاست صریح اصیل/تقسیم سود دوره فعال است؛ مالکیت مشترک و امانی را با آن اشتباه نگیرید.</div>'
   );
 }
 function calcNet() {
@@ -645,9 +646,10 @@ function calcNet() {
 }
 function importPage() {
   $("#pagecontent").innerHTML =
-    `<section class="panel fullpanel"><div class="panelhead"><h3>ورود امن گردش بانکی</h3>${badge("بدون ثبت خودکار")}</div><div class="importarea"><div class="dropzone">${icon("upload")}<strong>فایل CSV یا XLSX را انتخاب کنید</strong><p>تا ۱۰۰ ردیف در هر نوبت · حداکثر ۲ مگابایت<br>برگه اول، ردیف اول سرستون، مبلغ به ریال</p><input type="file" id="importfile" accept=".csv,.xlsx" aria-label="فایل ورودی">${btn("بررسی و پیش‌نمایش", "preview", "primary", "search")}</div><div class="schema"><b>قرارداد ستون‌های پشتیبانی‌شده</b><code>date, kind, party, bank, amount, reference, note</code>یا سرستون‌های فارسی: تاریخ، نوع عملیات، طرف حساب، بانک، مبلغ، شماره مرجع، شرح.<br>نوع عملیات: دریافت / پرداخت / هزینه / سرمایه.<br>نام طرف حساب و بانک باید از قبل تعریف شده باشد. تشخیص حدسی واریز و برداشت انجام نمی‌شود.<br>${btn("دریافت نمونه CSV", "sample")}</div></div><div id="importresult" class="tablewrap">${preview ? previewHTML() : ""}</div></section>`;
+    `<section class="panel fullpanel"><div class="panelhead"><h3>ورود امن گردش بانکی</h3>${badge("بدون ثبت خودکار")}</div><div class="importarea"><div class="dropzone">${icon("upload")}<strong>فایل CSV یا XLSX را انتخاب کنید</strong><p>بازبینی تا ۵۰ هزار ردیف · حداکثر ۲۰ مگابایت؛ همه ردیف‌ها قابل پیمایش‌اند<br>شیت قابل انتخاب، ردیف اول سرستون؛ واحد منبع را صریح تعیین کنید</p><input type="file" id="importfile" accept=".csv,.xlsx" aria-label="فایل ورودی">${btn("بررسی و پیش‌نمایش", "preview", "primary", "search")}</div><div class="schema"><b>قرارداد ستون‌های پشتیبانی‌شده</b><code>date, kind, party, bank, amount, reference, note</code>ستون amount در قرارداد نمونه به ریال است؛ برای منبع دیگر _unit برابر IRR یا IRT بگذارید. یا سرستون‌های فارسی: تاریخ، نوع عملیات، طرف حساب، بانک، مبلغ، شماره مرجع، شرح.<br>نوع عملیات: دریافت / پرداخت / هزینه / سرمایه.<br>نام طرف حساب و بانک باید از قبل تعریف شده باشد. تشخیص حدسی واریز و برداشت انجام نمی‌شود.<br><label>نگاشت ستون‌ها / شیت / مقدار پیش‌فرض (JSON، اختیاری)<textarea id="importmapping" placeholder='{"date":"تاریخ تراکنش","_defaults":{"bank":"نام بانک","kind":"دریافت"}}'></textarea></label>${btn("تعریف سریع شخص", "quick-party")}${btn("دریافت نمونه CSV", "sample")}</div></div><div id="importresult" class="tablewrap">${preview ? previewHTML() : ""}</div></section>`;
 }
-function previewHTML() {
+let importReviewPage = 1;
+function oldPreviewHTML() {
   return `<div class="toolbar"><strong>${fa(preview.valid)} ردیف معتبر از ${fa(preview.total)}</strong>${preview.errors.length ? badge(fa(preview.errors.length) + " خطا", "red") : badge("آماده ثبت")}<button class="btn primary" data-action="commit" ${preview.errors.length ? "disabled" : ""}>ثبت یک‌باره نوبت</button></div>${table(
     ["ردیف", "تاریخ", "عملیات", "طرف حساب", "بانک", "مبلغ (ریال)", "کنترل"],
     preview.rows
@@ -675,13 +677,16 @@ async function doPreview() {
   let form = new FormData();
   form.append("file", f);
   form.append("revision", S.revision);
+  const mapping = $("#importmapping")?.value?.trim();
+  if (mapping) form.append("mapping", mapping);
   preview = await api("/api/import/preview", "POST", form);
+  ++stateEpoch;
   S.revision = preview.revision;
   $("#importresult").innerHTML = previewHTML();
 }
 async function help() {
   $("#pagecontent").innerHTML =
-    `<section class="panel fullpanel"><div class="tabs panelhead"><strong>دفتر شما، مستقل از نرم‌افزار</strong>${btn("پشتیبان جدید", "backup", "primary", "shield")}</div><article class="document"><h3>شروع کار با مازندشت</h3><p>۱. در «تعاریف پایه» نام اشخاص، نوع سبد و تارای واقعی، محصولات، انبارها و بانک‌ها را تعریف کنید.<br>۲. قبض باسکول را ثبت کنید؛ باسکول به‌تنهایی سند مالی نیست.<br>۳. خرید یا فروش عادی را ثبت کنید. فروش نیازمند موجودی کافی و بهای تمام‌شده تأییدشده است.<br>۴. دریافت، پرداخت، هزینه و دستمزد، سند دوبل ایجاد می‌کنند. همه مبالغ ورود ریال هستند؛ کلید واحد بالا فقط نمایش را عوض می‌کند.<br>۵. برای اصلاح سند قطعی از «برگشت با علت» استفاده کنید؛ اصل سند حفظ می‌شود.</p><h3>فایل اکسل مستقل</h3><p>از «خروجی اکسل» فایل کامل را بگیرید. برگه <code>Guide</code> راهنمای مستقل است. در <code>Events</code> رویداد وارد کنید؛ <code>Journal</code>، <code>Trial</code> و <code>Stock</code> با فرمول کار می‌کنند. کدها پنهان‌اند و فهرست‌ها نام نشان می‌دهند. اکسل و نرم‌افزار را هم‌زمان روی یک فایل ویرایش نکنید. برای کار دوباره نرم‌افزار، همان فایل را با برنامه بسته در پوشه داده جایگزین کنید؛ قالب و نسخه ساختار باید حفظ شده باشد.</p><h3>وضعیت واقعی نسخه</h3><p>این نسخه توسعه است و تأیید حسابداری رسمی/مالیاتی ندارد. اطلاعات تاریخی در فایل‌های اصلاح‌شده جداگانه حفظ شده‌اند؛ مهاجرت مالی آنها انجام نشده است. شراکت مالی خودکار، ارزش‌گذاری خودکار موجودی، حقوق با بیمه و مالیات، بستن دوره، اتصال سخت‌افزاری باسکول و مدل هوش مصنوعی هنوز تکمیل نشده‌اند. چک‌ها فقط دفتر چرخه عملیاتی دارند؛ وصول را با ثبت بانکی تطبیق دهید. انبار این نسخه از خرید و فروش متعلق به شرکت محاسبه می‌شود؛ انتقال انبار و موجودی امانی خودکار نیست.</p><h3>پشتیبان و بازیابی</h3><p>قبل از هر تغییر، یک کپی کامل محلی ساخته می‌شود. بازیابی فقط برای مدیر است و خودش نیز پشتیبان دارد. زنجیره ممیزی هنگام نوشتن کنترل می‌شود؛ این حفاظت در برابر دست‌کاری همه فایل‌ها توسط مدیر سیستم‌عامل، تضمین رمزنگاری بیرونی ندارد.</p><h3>منبع داده و تفاوت پشتیبان</h3><div id="provenance"></div><h3>اصلاحات اکسل‌های قدیمی کجاست؟</h3><p>پنجره حاضر از فایل یکپارچه Mazandasht.xlsx می‌خواند، نه خودکار از ۱۴ فایل قدیمی. نسخه‌های اصلاح‌شده در پوشه Excel-v1.11 بسته خصوصی هستند. ستون‌های تازه با عنوان «انتخاب نام» در سمت انتهایی برگه ورودی اضافه شده‌اند؛ برای باسکول Entry ستون‌های AR تا AW و برای سبد Entry ستون‌های T و U را ببینید. راهنمای نقشه کامل کنار بسته قرار دارد. داده آموزشیِ پیش‌نمایش سوابق واقعی شما نیست.</p><div id="backuplist"></div><h3>ممیزی اخیر</h3>${table(
+    `<section class="panel fullpanel"><div class="tabs panelhead"><strong>دفتر شما، مستقل از نرم‌افزار</strong>${btn("پشتیبان جدید", "backup", "primary", "shield")}</div><article class="document"><h3>شروع کار با مازندشت</h3><p>۱. در «تعاریف پایه» نام اشخاص، نوع سبد و تارای واقعی، محصولات، انبارها و بانک‌ها را تعریف کنید.<br>۲. قبض باسکول را ثبت کنید؛ باسکول به‌تنهایی سند مالی نیست.<br>۳. خرید یا فروش عادی را ثبت کنید. فروش نیازمند موجودی کافی و بهای تمام‌شده تأییدشده است.<br>۴. دریافت، پرداخت، هزینه و دستمزد، سند دوبل ایجاد می‌کنند. همه مبالغ ورود ریال هستند؛ کلید واحد بالا فقط نمایش را عوض می‌کند.<br>۵. برای اصلاح سند قطعی از «برگشت با علت» استفاده کنید؛ اصل سند حفظ می‌شود.</p><h3>فایل اکسل مستقل</h3><p>از «خروجی اکسل» فایل کامل را بگیرید. برگه <code>Guide</code> راهنمای مستقل است. در <code>Events</code> رویداد وارد کنید؛ <code>Journal</code>، <code>Trial</code> و <code>Stock</code> با فرمول کار می‌کنند. کدها پنهان‌اند و فهرست‌ها نام نشان می‌دهند. اکسل و نرم‌افزار را هم‌زمان روی یک فایل ویرایش نکنید. برای کار دوباره نرم‌افزار، همان فایل را با برنامه بسته در پوشه داده جایگزین کنید؛ قالب و نسخه ساختار باید حفظ شده باشد.</p><h3>وضعیت واقعی نسخه</h3><p>این نسخه توسعه است و تأیید حسابداری رسمی/مالیاتی ندارد. اطلاعات تاریخی در فایل‌های اصلاح‌شده جداگانه حفظ شده‌اند؛ مهاجرت مالی آنها انجام نشده است. تقسیم سود دوره برای مدل اصیل با درصد تاریخی و قفل دوره فعال است؛ مدل مالکیت مشترک/امانی، ارزش‌گذاری خودکار موجودی، حقوق با بیمه/مالیات، بستن کامل دوره، باسکول سخت‌افزاری و مدل زبانی متصل هنوز وجود ندارند. چک‌ها فقط دفتر چرخه عملیاتی دارند؛ وصول را با ثبت بانکی تطبیق دهید. انبار این نسخه از خرید و فروش متعلق به شرکت محاسبه می‌شود؛ انتقال انبار و موجودی امانی خودکار نیست.</p><h3>پشتیبان و بازیابی</h3><p>قبل از هر تغییر، یک کپی کامل محلی ساخته می‌شود. بازیابی فقط برای مدیر است و خودش نیز پشتیبان دارد. زنجیره ممیزی هنگام نوشتن کنترل می‌شود؛ این حفاظت در برابر دست‌کاری همه فایل‌ها توسط مدیر سیستم‌عامل، تضمین رمزنگاری بیرونی ندارد.</p><h3>منبع داده و تفاوت پشتیبان</h3><div id="provenance"></div><h3>اصلاحات اکسل‌های قدیمی کجاست؟</h3><p>پنجره حاضر از فایل یکپارچه Mazandasht.xlsx می‌خواند، نه خودکار از ۱۴ فایل قدیمی. نسخه‌های اصلاح‌شده در پوشه Excel-v1.11 بسته خصوصی هستند. ستون‌های تازه با عنوان «انتخاب نام» در سمت انتهایی برگه ورودی اضافه شده‌اند؛ برای باسکول Entry ستون‌های AR تا AW و برای سبد Entry ستون‌های T و U را ببینید. راهنمای نقشه کامل کنار بسته قرار دارد. داده آموزشیِ پیش‌نمایش سوابق واقعی شما نیست.</p><div id="backuplist"></div><h3>ممیزی اخیر</h3>${table(
       ["زمان UTC", "کاربر", "عملیات"],
       (S.Audit || [])
         .slice(-5)

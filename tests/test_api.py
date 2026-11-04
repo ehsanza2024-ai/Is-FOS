@@ -83,3 +83,15 @@ def test_installed_entry_and_remote_read_only_integration(client):
             assert (await remote.post('/api/events',json={},headers={'X-Mazandasht-Request':'1'})).status_code==403
             assert (await remote.get('/api/export')).status_code==404
     asyncio.run(case())
+
+def test_extended_admin_exports_and_viewer_boundaries(client):
+    c,m=client;login(c)
+    assert c.post('/api/report-package',json={'password':'short'},headers={'X-Mazandasht-Request':'1'}).status_code==422
+    r=c.post('/api/report-package',json={'password':'Report-package-private-test'},headers={'X-Mazandasht-Request':'1'});assert r.status_code==200
+    assert c.get(r.json()['download']).status_code==200
+    assert c.get('/viewer').status_code==200 and 'data-mode="portable"' in c.get('/viewer').text
+    assert c.get('/api/collaboration/export').status_code==200
+    login(c,'viewer','Test-viewer-password')
+    assert c.post('/api/report-package',json={'password':'Report-package-private-test'},headers={'X-Mazandasht-Request':'1'}).status_code==403
+    assert c.post('/api/partnership/allocate',json={},headers={'X-Mazandasht-Request':'1'}).status_code==403
+    assert c.get('/api/collaboration/export').status_code==403

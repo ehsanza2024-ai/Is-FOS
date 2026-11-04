@@ -5,7 +5,7 @@ from decimal import Decimal
 import os, json, sqlite3, logging
 import jdatetime
 from fastapi import FastAPI, Request, UploadFile, File, Form, HTTPException
-from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
+from fastapi.responses import FileResponse, JSONResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from filelock import Timeout
 from app.store import Store, Conflict
@@ -17,7 +17,7 @@ BASE=Path(__file__).resolve().parents[1]
 DEMO=os.environ.get('MAZANDASHT_DEMO')=='1'
 ROOT=Path(os.environ.get('MAZANDASHT_DATA',str(BASE/'runtime'/('demo' if DEMO else 'local'))))
 store=Store(ROOT,DEMO);security=Security(ROOT,DEMO)
-app=FastAPI(title='مازندشت | هسته اکسل',version='0.6.0',docs_url=None,redoc_url=None)
+app=FastAPI(title='مازندشت | هسته اکسل',version='0.7.0',docs_url=None,redoc_url=None)
 app.mount('/static',StaticFiles(directory=BASE/'static'),name='static')
 
 @app.middleware('http')
@@ -26,13 +26,13 @@ async def protection(request,call_next):
         origin=request.headers.get('origin')
         if origin and urlparse(origin).netloc!=request.headers.get('host'):return JSONResponse({'detail':'مبدأ درخواست مجاز نیست'},status_code=403)
         size=request.headers.get('content-length','0')
-        try:too_large=int(size)>3*1024*1024
+        try:too_large=int(size)>22*1024*1024
         except ValueError:too_large=True
         if too_large:return JSONResponse({'detail':'درخواست بیش از حد بزرگ است'},status_code=413)
         if request.url.path!='/api/login' and request.headers.get('x-mazandasht-request')!='1':return JSONResponse({'detail':'نشان درخواست لازم است'},status_code=403)
     response=await call_next(request)
     response.headers['X-Content-Type-Options']='nosniff';response.headers['Referrer-Policy']='same-origin'
-    response.headers['Content-Security-Policy']="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'"
+    response.headers['Content-Security-Policy']="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://api.open-meteo.com; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'"
     response.headers['Cache-Control']='no-store'
     return response
 
@@ -46,7 +46,7 @@ async def excel_locked(request,exc):return JSONResponse({'detail':'فایل اک
 @app.get('/')
 def index():return FileResponse(BASE/'static/index.html')
 @app.get('/api/health')
-def health():return {'ok':True,'version':'0.6.0','demo':DEMO,'today':jdatetime.date.today().strftime('%Y/%m/%d'),'status':'نسخه توسعه؛ تأیید تولید نشده'}
+def health():return {'ok':True,'version':'0.7.0','demo':DEMO,'today':jdatetime.date.today().strftime('%Y/%m/%d'),'status':'نسخه توسعه؛ تأیید تولید نشده'}
 @app.post('/api/login')
 async def login(request:Request):
     b=await request.json();token,user=security.login(str(b.get('name','')),str(b.get('password','')),request.client.host)
@@ -58,6 +58,8 @@ def logout(request:Request):
 def state(request:Request):
     user=security.require(request);data=store.read();data['user']={'name':user['name'],'role':user['role']};data['demo']=DEMO or any(r['key']=='mode' and r['value']=='نمونه آموزشی' for r in data['Info']);data['check_transitions']={k:sorted(v) for k,v in CHECK_TRANSITIONS.items()}
     if user['role']!='admin':data.pop('Audit',None)
+    from app.reports import exact_json
+    data['trial']=exact_json(data['trial'])
     return data
 @app.post('/api/references/{sheet}')
 async def reference(sheet:str,request:Request):
@@ -79,14 +81,14 @@ async def check_state(entity:str,request:Request):
     user=security.require(request,'finance');b=await request.json();return store.check_state(entity,b['state'],user['name'],b.get('revision'))
 @app.post('/api/import/preview')
 async def preview(request:Request,file:UploadFile=File(...),revision:str=Form(...),mapping:str=Form('{}')):
-    user=security.require(request,'finance');content=await file.read(2*1024*1024+1)
+    user=security.require(request,'finance');content=await file.read(imports.MAX_BYTES+1)
     try:m=json.loads(mapping)
     except json.JSONDecodeError:raise RuleError('نگاشت JSON معتبر نیست')
     if not isinstance(m,dict):raise RuleError('نگاشت باید یک شیء باشد')
     return imports.preview(store,content,file.filename or '',user['name'],revision,m)
 @app.post('/api/import/{entity}/commit')
 async def commit(entity:str,request:Request):
-    user=security.require(request,'finance');b=await request.json();return imports.commit(store,entity,user['name'],b.get('revision'))
+    user=security.require(request,'finance');b=await request.json();return imports.commit(store,entity,user['name'],b.get('revision'),b.get('selected'))
 @app.get('/api/export')
 def export(request:Request):
     security.require(request);return FileResponse(store.backup(),filename='Mazandasht.xlsx')
@@ -145,3 +147,63 @@ def provenance(request:Request):
             result['backup']={'name':p.name,'sha256':fingerprint(p),'events':len(old),'same_bytes':fingerprint(p)==current['revision'],'new_event_ids':sorted(b-a),'removed_event_ids':sorted(a-b),'changed_events':changed}
             w.close()
     return result
+
+@app.post('/api/references/{sheet}/{entity}/details')
+async def reference_details(sheet:str,entity:str,request:Request):
+    user=security.require(request,'admin');b=await request.json();return store.update_ref(sheet,entity,b['changes'],user['name'],b.get('revision'))
+
+@app.post('/api/import/{entity}/rows')
+async def import_rows(entity:str,request:Request):
+    user=security.require(request,'finance');b=await request.json();return imports.revise(store,entity,b.get('updates',[]),user['name'],b.get('revision'))
+
+@app.post('/api/partnership/allocate')
+async def allocate(request:Request):
+    user=security.require(request,'admin');b=await request.json();return store.settle(b['deal'],b['start'],b['end'],user['name'],b.get('revision'))
+
+@app.get('/api/collaboration')
+def collaboration_state(request:Request):
+    from app.collaboration import AGENTS,history
+    security.require(request)
+    return {'mode':'محلی قاعده‌محور؛ مدل زبانی متصل نیست','agents':AGENTS,'history':history(ROOT)[-50:]}
+
+@app.post('/api/collaboration')
+async def collaboration_question(request:Request):
+    from app.collaboration import advise
+    user=security.require(request);b=await request.json();return advise(ROOT,store.read(),user['name'],b.get('question',''))
+
+@app.post('/api/knowledge')
+async def knowledge(request:Request):
+    from app.collaboration import record
+    user=security.require(request,'admin');b=await request.json()
+    if b.get('kind') not in ['knowledge','proposal']:raise RuleError('نوع یادداشت معتبر نیست')
+    return record(ROOT,user['name'],b['kind'],{'text':str(b.get('text',''))},store.read()['revision'])
+
+@app.post('/api/report-package')
+async def report_package(request:Request):
+    from app.cloud_reports import package
+    from app.store import uid
+    user=security.require(request,'admin');b=await request.json();content=package(store.read(),str(b.get('password','')))
+    folder=ROOT/'report-packages';folder.mkdir(exist_ok=True);name='Mazandasht-'+uid()+'.mazreport';path=folder/name
+    with path.open('xb') as f:f.write(content)
+    os.chmod(path,0o600)
+    return {'name':name,'bytes':len(content),'download':'/api/report-package/'+name}
+
+@app.get('/api/report-package/{name}')
+def report_download(name:str,request:Request):
+    security.require(request,'admin')
+    if Path(name).name!=name or not name.endswith('.mazreport'):raise HTTPException(404)
+    path=ROOT/'report-packages'/name
+    if not path.is_file():raise HTTPException(404)
+    return FileResponse(path,filename=name,media_type='application/octet-stream')
+
+
+@app.get('/viewer')
+def portable_viewer():return HTMLResponse((BASE/'static/dashboard.html').read_text().replace('<body>','<body data-mode="portable">'))
+
+
+@app.get('/api/collaboration/export')
+def collaboration_export(request:Request):
+    from app.collaboration import history
+    security.require(request,'admin')
+    text=''.join(json.dumps(r,ensure_ascii=False)+'\n' for r in history(ROOT))
+    return Response(text,media_type='application/x-ndjson',headers={'Content-Disposition':'attachment; filename="evolution.jsonl"'})

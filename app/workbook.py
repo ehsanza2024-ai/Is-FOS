@@ -12,12 +12,15 @@ from app.domain import ACCOUNTS, KINDS
 
 CAPACITY=1000
 SCHEMAS={
- 'Parties':['id','name','role','active'],
+ 'Parties':['id','name','role','active','code','group','note'],
  'Baskets':['id','name','tare'],
  'Products':['id','name'], 'Stores':['id','name'], 'Banks':['id','name'],
- 'Deals':['id','name','partner','share','start','end','product','status'],
+ 'Deals':['id','name','partner','share','start','end','product','status','policy','note'],
+ 'Groups':['id','name','parent','category','note'],
+ 'Accounts':['id','name','category','group','active','note'],
+ 'Operations':['id','name','debit','credit','active','note'],
  'Info':['key','value','note'],
- 'Events':['id','date','kind','party','product','store','bank','qty','rate','input_amount','cost','status','reference','note','source_weigh','deal','share','sign','reversal_of','effective_amount','debit_account','credit_account','party_id','product_id','store_id','bank_id','deal_id'],
+ 'Events':['id','date','kind','party','product','store','bank','qty','rate','input_amount','cost','status','reference','note','source_weigh','deal','share','sign','reversal_of','effective_amount','debit_account','credit_account','party_id','product_id','store_id','bank_id','deal_id','signed_qty','debit_snapshot','credit_snapshot','period_start','period_end'],
  'Weigh':['id','date','operation','party','product','store','basket','count','gross','tare','loss','waste','net','reference','note','deal','share','party_id','product_id','basket_id'],
  'Checks':['id','date','number','direction','party','bank','amount','due','state','reference','note'],
  'Imports':['id','created_at','digest','rows_json','errors_json','status'],
@@ -83,7 +86,7 @@ def create(path:Path,demo=False):
         w.defined_names.add(DefinedName(ref+'Names',attr_text=f"'{ref}'!$B$3:INDEX('{ref}'!$B$3:$B${CAPACITY+2},MAX(1,COUNTA('{ref}'!$B$3:$B${CAPACITY+2})))"))
     validation(w['Events'],3,'"'+','.join(KINDS)+'"');validation(w['Events'],12,'"پیش‌نویس,قطعی"')
     validation(w['Checks'],4,'"دریافتی,پرداختی"');validation(w['Checks'],9,'"ثبت‌شده,واگذارشده,وصول‌شده,برگشتی,باطل‌شده"')
-    for r in [{'key':'organization','value':'مازندشت','note':'نام روی چاپ'}, {'key':'schema_version','value':'1.0','note':'تغییر فقط با مهاجرت'}, {'key':'money_unit','value':'IRR','note':'تمام مبالغ ورودی ریال'}, {'key':'capacity','value':CAPACITY,'note':'ظرفیت ردیف در هر دفتر'}, {'key':'mode','value':'نمونه آموزشی' if demo else 'خالی','note':'داده نمونه، سابقه واقعی نیست'}]:put(w,'Info',r)
+    for r in [{'key':'organization','value':'مازندشت','note':'نام روی چاپ'}, {'key':'schema_version','value':'1.1','note':'تغییر فقط با مهاجرت'}, {'key':'money_unit','value':'IRR','note':'تمام مبالغ ورودی ریال'}, {'key':'capacity','value':CAPACITY,'note':'ظرفیت ردیف در هر دفتر'}, {'key':'mode','value':'نمونه آموزشی' if demo else 'خالی','note':'داده نمونه، سابقه واقعی نیست'}]:put(w,'Info',r)
     put(w,'Guide',{'topic':'شروع','instruction':'تعاریف پایه را تکمیل کنید. همه فهرست‌ها نام نشان می‌دهند؛ شناسه‌ها پنهان‌اند. داده واقعی خودکار به این قالب مهاجرت نشده است.'})
     put(w,'Guide',{'topic':'اکسل مستقل','instruction':'بدون نرم‌افزار: رویدادها را در Events وارد کنید؛ نوع، تاریخ، نام شخص، محصول/انبار، مقدار و فی یا مبلغ، وضعیت قطعی و ضریب سند ۱ را وارد کنید. Journal، Trial و Stock فرمولی‌اند. برای اصلاح، ردیف معکوس با ضریب منفی ۱ اضافه کنید؛ اصل را حذف نکنید.'})
     put(w,'Guide',{'topic':'کنترل','instruction':'اکسل مستقل تراکنش، نقش و قفل غیرقابل دورزدن ندارد. قبل از قطعی‌کردن، موجودی، تاریخ، مبالغ، بهای تمام‌شده و توازن را کنترل کنید. شراکت مالی خودکار، ارزش‌گذاری خودکار و وصول چک با ثبت مالی خودکار در این نسخه فعال نیست.'})
@@ -137,5 +140,7 @@ def create(path:Path,demo=False):
     for sn in ['Parties','Baskets','Products','Stores','Banks','Deals','Events','Weigh','Checks']:
         for r in range(3,CAPACITY+3):
             if w[sn].cell(r,1).value is None:w[sn].cell(r,1,f'{sn}-{r-2:06d}')
+    from app.schema import install
+    install(w)
     path.parent.mkdir(parents=True,exist_ok=True);w.save(path)
     return path
