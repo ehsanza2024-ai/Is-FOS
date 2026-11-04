@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+  <meta charset="utf-8" /><meta
+    name="viewport"
+    content="width=device-width,initial-scale=1"
+  /><title>نقشه اصلاحات Excel مازندشت</title
+  ><style>
+    body {
+      font:
+        16px/2.2 Tahoma,
+        sans-serif;
+      max-width: 1150px;
+      margin: 35px auto;
+      padding: 0 20px;
+      color: #244438;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      font-size: 13px;
+    }
+    td,
+    th {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: right;
+    }
+    th {
+      background: #edf3e5;
+    }
+    code {
+      direction: ltr;
+      display: inline-block;
+    }
+    aside {
+      background: #fff5df;
+      padding: 15px;
+    }
+  </style>
+  <h1>اصلاحات Excel را کجا ببینم؟</h1>
+  <aside>
+    پیش‌نمایش وب داده ساختگی و دفتر جدا دارد. فایل‌های اصلاحی واقعی در
+    Excel-v1.11 بسته خصوصی هستند؛ نه فایل‌های اصل Sources و نه داخل ZIP
+    نرم‌افزار عمومی.
+  </aside>
+  <p>
+    همه ۱۴ فایل را در یک پوشه نگه دارید. در Excel فایل و شیت جدول را باز کنید؛
+    Ctrl+G بزنید و نخستین سلول محدوده جدید را وارد کنید. مثال:
+    <code>Weigh.xlsx → Entry → AR9</code> برای نام نوع سبد؛ در Basket از
+    <code>U9</code> استفاده کنید. سپس Alt+Down یا فلش فهرست را بزنید. ستون کد
+    قبلی عمداً پنهان است؛ ستون‌های نام در انتهای شیت اضافه شده‌اند، نه روی
+    ورودی‌های سابق.
+  </p>
+  <div style="overflow: auto">
+    <table>
+      <thead>
+        <tr>
+          <th>فایل</th>
+          <th>شیت</th>
+          <th>انتخاب نام</th>
+          <th>محدوده جدید</th>
+          <th>کد سابق</th>
+          <th>تازه‌شدن</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Basket.xlsx</td>
+          <td>Entry</td>
+          <td>طرف حساب</td>
+          <td>T9:T1008</td>
+          <td>D9:D1008</td>
+          <td>Sync زنده، حداکثر ۳۰۰ مرجع</td>
+        </tr>
+        <tr>
+          <td>Basket.xlsx</td>
+          <td>Entry</td>
+          <td>نوع سبد</td>
+          <td>U9:U1008</td>
+          <td>G9:G1008</td>
+          <td>Sync زنده، حداکثر ۳۰۰ مرجع</td>
+        </tr>
+        <tr>
+          <td>Buy.xlsx</td>
+          <td>Details</td>
+          <td>قبض / بار منبع</td>
+          <td>X9:X1008</td>
+          <td>A9:A1008</td>
+          <td>snapshot زمان اصلاح؛ نگاشت باید به‌روز شود</td>
+        </tr>
+        <tr>
+          <td>Buy.xlsx</td>
+          <td>Details</td>
+          <td>قرارداد</td>
+          <td>Y9:Y1008</td>
+          <td>K9:K1008</td>
+          <td>snapshot زمان اصلاح؛ نگاشت باید به‌روز شود</td>
+        </tr>
+        <tr>
+          <td>Buy.xlsx</td>
+          <td>Details</td>
+          <td>طرف حساب</td>
+          <td>Z9:Z1008</td>
+          <td>P9:P1008</td>
+          <td>Sync زنده، حداکثر ۳۰۰ مرجع</td>
+        </tr>
+        <tr>
+          <td>Cheq.xlsx</td>
+          <td>Entry</td>
+          <td>طرف حساب</td>
+          <td>AJ9:AJ1008</td>
+          <td>D9:D1008</td>
+          <td>Sync زنده، حداکثر ۳۰۰ مرجع</td>
+        </tr>
+        <tr>
+          <td>Cheq.xlsx</td>
+          <td>Entry</td>
+          <td>حساب بانکی</td>
+          <td>AK9:AK1008</td>
+          <td>K9:K1008</td>
+          <td>Sync زنده، حداکثر ۳۰۰ مرجع</td>
+        </tr>
+        <tr>
+          <td>Cost.xlsx</td>
+          <td>Entry</td>
+          <td>طرف حساب</td>
+          <td>T9:T1008</td>
+          <td>D9:D1008</td>
+          <td>Sync زنده، حداکثر ۳۰۰ مرجع</td>
+        </tr>
+        <tr>
+          <td>Cost.xlsx</td>
+          <td>Entry</td>
+          <td>طرف حساب</td>
+          <td>U9:U1008</td>
+          <td>G9:G1008</td>
+          <td>Sync زنده، حداکثر ۳۰۰ مرجع</td>
+        </tr>
+        <tr>
+          <td>Cost.xlsx</td>
+          <td>Entry</td>
+          <td>قرارداد</td>
+          <td>V9:V1008</td>
+          <td>K9:K1008</td>
+          <td>snapshot زمان اصلاح؛ نگاشت باید به‌روز شود</td>
+        </tr>
+        <tr>
+          <td>Info.xlsx</td>
+          <td>Setup</td>
+          <td>واحد پول</td>
+          <td>E10:E10</td>
+          <td>B10</td>
+          <td>Sync زنده، حداکثر ۳۰۰ مرجع</td>
+        </tr>
+        <tr>
+          <td>Invoice.xlsx</td>
+          <td>Setup</td>
+          <td>طرف حساب فاکتور</td>
+          <td>H9:H9</td>
+          <td>B9</td>
+          <td>Sync زنده، حداکثر ۳۰۰ مرجع</td>
+        </tr>
+        <tr>
+          <td>Sale.xlsx</td>
+          <td>Details</td>
+          <td>قبض / بار منبع</td>
+          <td>X9:X1008</td>
+          <td>A9:A1008</td>
+          <td>snapshot زمان اصلاح؛ نگاشت باید به‌روز شود</td>
+        </tr>
+        <tr>
+          <td>Sale.xlsx</td>
+          <td>Details</td>
+          <td>قرارداد</td>
+          <td>Y9:Y1008</td>
+          <td>K9:K1008</td>
+          <td>snapshot زمان اصلاح؛ نگاشت باید به‌روز شود</td>
+        </tr>
+        <tr>
+          <td>Sale.xlsx</td>
+          <td>Details</td>
+          <td>طرف حساب</td>
+          <td>Z9:Z1008</td>
+          <td>P9:P1008</td>
+          <td>Sync زنده، حداکثر ۳۰۰ مرجع</td>
+        </tr>
+        <tr>
+          <td>Staff.xlsx</td>
+          <td>Entry</td>
+          <td>طرف حساب</td>
+          <td>X9:X1008</td>
+          <td>D9:D1008</td>
+          <td>Sync زنده، حداکثر ۳۰۰ مرجع</td>
+        </tr>
+        <tr>
+          <td>Staff.xlsx</td>
+          <td>Entry</td>
+          <td>نرخ کارکرد</td>
+          <td>Y9:Y1008</td>
+          <td>L9:L1008</td>
+          <td>snapshot زمان اصلاح؛ نگاشت باید به‌روز شود</td>
+        </tr>
+        <tr>
+          <td>Staff.xlsx</td>
+          <td>Entry</td>
+          <td>قرارداد</td>
+          <td>Z9:Z1008</td>
+          <td>R9:R1008</td>
+          <td>snapshot زمان اصلاح؛ نگاشت باید به‌روز شود</td>
+        </tr>
+        <tr>
+          <td>Txn.xlsx</td>
+          <td>Entry</td>
+          <td>حساب بانکی</td>
+          <td>AG9:AG1008</td>
+          <td>G9:G1008</td>
+          <td>Sync زنده، حداکثر ۳۰۰ مرجع</td>
+        </tr>
+        <tr>
+          <td>Txn.xlsx</td>
+          <td>Entry</td>
+          <td>حساب بانکی</td>
+          <td>AH9:AH1008</td>
+          <td>H9:H1008</td>
+          <td>Sync زنده، حداکثر ۳۰۰ مرجع</td>
+        </tr>
+        <tr>
+          <td>Txn.xlsx</td>
+          <td>Entry</td>
+          <td>قرارداد</td>
+          <td>AI9:AI1008</td>
+          <td>K9:K1008</td>
+          <td>snapshot زمان اصلاح؛ نگاشت باید به‌روز شود</td>
+        </tr>
+        <tr>
+          <td>Weigh.xlsx</td>
+          <td>Entry</td>
+          <td>نوع سبد</td>
+          <td>AR9:AR1008</td>
+          <td>G9:G1008</td>
+          <td>Sync زنده، حداکثر ۳۰۰ مرجع</td>
+        </tr>
+        <tr>
+          <td>Weigh.xlsx</td>
+          <td>Entry</td>
+          <td>محصول</td>
+          <td>AS9:AS1008</td>
+          <td>H9:H1008</td>
+          <td>Sync زنده، حداکثر ۳۰۰ مرجع</td>
+        </tr>
+        <tr>
+          <td>Weigh.xlsx</td>
+          <td>Entry</td>
+          <td>انبار</td>
+          <td>AT9:AT1008</td>
+          <td>R9:R1008</td>
+          <td>Sync زنده، حداکثر ۳۰۰ مرجع</td>
+        </tr>
+        <tr>
+          <td>Weigh.xlsx</td>
+          <td>Entry</td>
+          <td>انبار</td>
+          <td>AU9:AU1008</td>
+          <td>S9:S1008</td>
+          <td>Sync زنده، حداکثر ۳۰۰ مرجع</td>
+        </tr>
+        <tr>
+          <td>Weigh.xlsx</td>
+          <td>Entry</td>
+          <td>قرارداد</td>
+          <td>AV9:AV1008</td>
+          <td>W9:W1008</td>
+          <td>snapshot زمان اصلاح؛ نگاشت باید به‌روز شود</td>
+        </tr>
+        <tr>
+          <td>Weigh.xlsx</td>
+          <td>Entry</td>
+          <td>طرف حساب</td>
+          <td>AW9:AW1008</td>
+          <td>D9:D1008</td>
+          <td>Sync زنده، حداکثر ۳۰۰ مرجع</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    ۲۷ محدوده در مجموعه ۱۴فایلی. تمام ۹۹۶٬۱۳۳ فرمول اصلی در بررسی XML حفظ
+    شده‌اند؛ حفظ فرمول به معنی تأیید محاسبه/مانده نیست. پیوندها و محاسبه کامل
+    باید در Excel مقصد روی کپی آزموده شوند؛ این پذیرش انجام نشده است. افزونه یا
+    ماکروی جدید لازم نیست. snapshot قرارداد/نرخ/بار با افزودن رکورد خودکار رشد
+    نمی‌کند.
+  </p>
+  <p>
+    دفتر جدید نرم‌افزار از این ۱۴ فایل خودکار تغذیه نمی‌شود. History-Review
+    صرفاً ۳۵۷ ردیف بازبینی (۳۵۵ یکتا/۲ تکرار)، با صفر انتقال قطعی سند است. داده
+    آموزشی برای پوشاندن مهاجرت‌نشدن تاریخچه واقعی حذف یا واقعی نامیده نشده است.
+  </p>
+</html>

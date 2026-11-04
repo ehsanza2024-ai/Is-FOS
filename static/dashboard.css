@@ -1,0 +1,186 @@
+.report-shell {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 20px max(16px, env(safe-area-inset-right)) 12px;
+  background: #f4f6f3;
+  gap: 14px;
+}
+.report-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.report-brand h1 {
+  font-size: 23px;
+  margin: 0 0 7px;
+  color: #204d3c;
+}
+.report-brand p {
+  font-size: 11px;
+  color: #6d8170;
+  margin: 0;
+}
+.report-filters {
+  display: grid;
+  grid-template-columns: minmax(150px, 2fr) repeat(2, minmax(120px, 1fr)) auto;
+  gap: 12px;
+  align-items: end;
+  flex-shrink: 0;
+  background: #fff;
+  padding: 14px;
+  border: 1px solid #dfe6d8;
+  border-radius: 12px;
+}
+.report-filters label {
+  font-size: 11px;
+  color: #617d51;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.report-tabs {
+  display: flex;
+  gap: 6px;
+  overflow: auto;
+  flex-shrink: 0;
+  padding-bottom: 5px;
+}
+.report-tabs button {
+  flex-shrink: 0;
+}
+.report-tabs .selected {
+  background: #204d3c;
+  color: white;
+  border-color: #204d3c;
+}
+.report-body {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+.report-body > .panel {
+  flex-shrink: 0;
+  overflow: visible;
+}
+.report-table {
+  overflow: auto;
+  max-width: 100%;
+}
+.report-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.report-cards .statnum {
+  font-size: 24px;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.report-notes {
+  font-size: 11px;
+  color: #7a8d6b;
+  line-height: 2;
+  margin: 0;
+  padding: 15px 30px;
+  background: #edf3e5;
+  border-radius: 10px;
+}
+.report-status {
+  font-size: 10px;
+  color: #7c8b73;
+  flex-shrink: 0;
+  line-height: 1.7;
+}
+.report-error {
+  color: #ad4e37;
+}
+.report-summary {
+  padding: 12px 18px;
+  line-height: 2;
+  color: #6e855d;
+  font-size: 12px;
+}
+.report-shell .tablewrap {
+  overflow: visible;
+}
+.report-help {
+  font-size: 12px;
+  line-height: 2.2;
+  padding: 20px;
+  color: #678055;
+}
+.report-shell .pagination {
+  background: #fff;
+  border-radius: 8px;
+}
+.report-login-note {
+  font-size: 11px;
+  line-height: 2;
+  color: #7e8c71;
+}
+.report-shell footer {
+  font-size: 10px;
+  color: #7d8c73;
+  flex-shrink: 0;
+}
+.report-body .empty {
+  background: #fff;
+  border-radius: 10px;
+}
+.report-top .buttons {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+@media (max-width: 700px) {
+  .report-shell {
+    padding-top: 14px;
+    gap: 10px;
+  }
+  .report-top {
+    align-items: flex-start;
+  }
+  .report-brand h1 {
+    font-size: 19px;
+  }
+  .report-top .btn {
+    padding: 7px 9px;
+    font-size: 10px;
+  }
+  .report-filters {
+    grid-template-columns: 1fr 1fr;
+    padding: 10px;
+    gap: 10px;
+  }
+  .report-filters label:first-child {
+    grid-column: 1/-1;
+  }
+  .report-filters .btn {
+    grid-column: 1/-1;
+  }
+  .report-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .report-cards .card {
+    padding: 14px;
+  }
+  .report-cards .statnum {
+    font-size: 19px;
+  }
+  .report-status {
+    font-size: 9px;
+  }
+  .report-top .badge {
+    font-size: 8px;
+  }
+  .report-tabs .btn {
+    padding: 8px 11px;
+  }
+}

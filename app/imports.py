@@ -3,7 +3,7 @@ import csv, io, json, hashlib
 from zipfile import ZipFile, BadZipFile
 from openpyxl import load_workbook
 from app.domain import RuleError
-from app.workbook import rows, put
+from app.workbook import rows, indexed_rows, put
 from app.store import uid, stamp, Conflict
 
 ALIASES={'date':['date','تاریخ'],'kind':['kind','نوع عملیات','عملیات'],'party':['party','طرف حساب'],
@@ -71,7 +71,7 @@ def preview(store,content,filename,actor,revision,mapping=None):
 
 def commit(store,batch_id,actor,revision):
     with store.edit(actor,'import.commit:'+batch_id,revision) as w:
-        found=next(((n,r) for n,r in enumerate(rows(w,'Imports'),3) if r['id']==batch_id),None)
+        found=next(((n,r) for n,r in indexed_rows(w,'Imports') if r['id']==batch_id),None)
         if not found:raise RuleError('پیش‌نمایش پیدا نشد')
         n,batch=found
         if batch['status']=='ثبت‌شده':raise Conflict('این نوبت قبلاً ثبت شده است')

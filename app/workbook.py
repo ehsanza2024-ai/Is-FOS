@@ -38,9 +38,15 @@ FA={'id':'شناسه داخلی','name':'نام قابل نمایش','role':'ن�
  'source_id':'منبع سند','account':'حساب','debit':'بدهکار (ریال)','credit':'بستانکار (ریال)','category':'گروه حساب','balance':'مانده (ریال)'}
 REFS={'party':'Parties','basket':'Baskets','product':'Products','store':'Stores','bank':'Banks','deal':'Deals'}
 
-def rows(w,sheet):
+def indexed_rows(w,sheet):
+    """Keep physical row addresses: filtering blank rows must not shift updates."""
     keys=SCHEMAS[sheet]
-    return [dict(zip(keys,r[:len(keys)])) for r in w[sheet].iter_rows(min_row=3,values_only=True) if r[0] is not None and not str(r[0]).startswith('=') and (sheet not in ['Parties','Baskets','Products','Stores','Banks','Deals','Events','Weigh','Checks'] or r[1] is not None)]
+    for n,r in enumerate(w[sheet].iter_rows(min_row=3,values_only=True),3):
+        if r[0] is not None and not str(r[0]).startswith('=') and (sheet not in ['Parties','Baskets','Products','Stores','Banks','Deals','Events','Weigh','Checks'] or r[1] is not None):
+            yield n,dict(zip(keys,r[:len(keys)]))
+
+def rows(w,sheet):
+    return [r for _,r in indexed_rows(w,sheet)]
 
 def put(w,sheet,record,row=None):
     s=w[sheet]

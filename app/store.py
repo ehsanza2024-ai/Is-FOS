@@ -7,7 +7,7 @@ import hashlib, json, os, shutil, tempfile, uuid
 from filelock import FileLock
 from openpyxl import load_workbook
 from app import domain as d
-from app.workbook import create, rows, put, SCHEMAS, CAPACITY
+from app.workbook import create, rows, indexed_rows, put, SCHEMAS, CAPACITY
 
 class Conflict(d.RuleError):pass
 
@@ -17,15 +17,24 @@ def uid():return uuid.uuid4().hex
 def fingerprint(path):return hashlib.sha256(path.read_bytes()).hexdigest()
 
 class Store:
-    def __init__(self,root,demo=False):
-        self.root=Path(root);self.root.mkdir(parents=True,exist_ok=True)
-        self.path=self.root/'Mazandasht.xlsx';self.backups=self.root/'backups';self.backups.mkdir(exist_ok=True)
+    def __init__(self,root,demo=False,read_only=False):
+        self.root=Path(root);self.read_only=read_only
+        if read_only and not (self.root/'Mazandasht.xlsx').is_file():
+            raise FileNotFoundError('ابتدا نصب و دفتر مرکزی را راه‌اندازی کنید؛ داشبورد دفتر جدید نمی‌سازد')
+        if not read_only:self.root.mkdir(parents=True,exist_ok=True)
+        self.path=self.root/'Mazandasht.xlsx';self.backups=self.root/'backups'
+        if not read_only:self.backups.mkdir(exist_ok=True)
         self.lock=FileLock(str(self.root/'workbook.lock'),timeout=15)
-        with self.lock:
-            if not self.path.exists():create(self.path,demo)
+        if not read_only:
+            with self.lock:
+                if not self.path.exists():create(self.path,demo)
+
+    def writable(self):
+        if self.read_only:raise d.RuleError('داشبورد فقط‌خواندنی است؛ ثبت فقط در سیستم مرکزی مجاز است')
 
     @contextmanager
     def edit(self,actor,action,expected=None):
+        self.writable()
         with self.lock:
             before=fingerprint(self.path)
             if not expected or expected!=before:raise Conflict('فایل اکسل تغییر کرده است؛ صفحه را تازه کنید و دوباره اقدام کنید')
@@ -72,7 +81,13 @@ class Store:
             e['sign']=int(sign);e['cost']=d.money(e.get('cost') or 0)
             d.money(e['amount'])
             for k in ['effective_amount','debit_account','credit_account']+[x for x in SCHEMAS['Events'] if x.endswith('_id')]:e.pop(k,None)
+        for c in data['Checks']:
+            c['date']=d.date(c['date']);c['due']=d.date(c['due'])
+            if c.get('amount') in [None,'']:raise d.RuleError('مبلغ چک در اکسل خالی است؛ صفر فرض نشد')
+            c['amount']=d.money(c['amount'])
+            if c['amount']<=0 or c['state'] not in d.CHECK_TRANSITIONS:raise d.RuleError('مبلغ یا وضعیت چک در اکسل معتبر نیست')
         for r in data['Weigh']:
+            r['date']=d.date(r['date'])
             try:r['net']=str(d.net_weight(r['gross'],r['count'],r['tare'],r.get('loss') or 0,r.get('waste') or 0))
             except d.RuleError:r['net']=None
         data.update(revision=revision,stock=self.stock(data['Events']),trial=self.trial(data['Events']))
@@ -161,7 +176,8 @@ class Store:
             weigh=next((x for x in rows(w,'Weigh') if x['id']==r['source_weigh']),None)
             if not weigh:raise d.RuleError('باسکول منبع یافت نشد')
             if weigh.get('deal'):raise d.RuleError('باسکول شراکتی نمی‌تواند به سند عادی تبدیل شود؛ تطبیق مالکیت لازم است')
-            if any(e.get('source_weigh')==r['source_weigh'] for e in old):raise Conflict('این باسکول قبلاً به سند متصل شده است')
+            reversed_ids={e.get('reversal_of') for e in old if e.get('reversal_of')}
+            if any(e.get('source_weigh')==r['source_weigh'] and int(e.get('sign') or 1)==1 and e['id'] not in reversed_ids for e in old):raise Conflict('این باسکول قبلاً به سند فعال متصل شده است')
             if r['kind'] not in ['خرید','فروش'] or any(r[k]!=weigh[k] for k in ['party','product','store']):raise d.RuleError('اطلاعات سند با باسکول منبع یکسان نیست')
             if Decimal(r['qty'])!=d.net_weight(weigh['gross'],weigh['count'],weigh['tare'],weigh.get('loss') or 0,weigh.get('waste') or 0):raise d.RuleError('مقدار سند با وزن خالص باسکول یکسان نیست')
         r.update(id=uid(),status='قطعی',sign=1,input_amount=r['amount']);d.posting(r)
@@ -194,7 +210,7 @@ class Store:
 
     def check_state(self,entity,state,actor,revision):
         with self.edit(actor,'check.transition:'+entity,revision) as w:
-            found=next(((n,r) for n,r in enumerate(rows(w,'Checks'),3) if r['id']==entity),None)
+            found=next(((n,r) for n,r in indexed_rows(w,'Checks') if r['id']==entity),None)
             if not found:raise d.RuleError('چک پیدا نشد')
             n,r=found
             if state not in d.CHECK_TRANSITIONS.get(r['state'],set()):raise d.RuleError('تغییر وضعیت چک مجاز نیست')
@@ -203,11 +219,13 @@ class Store:
         return {'state':state}
 
     def backup(self):
+        self.writable()
         with self.lock:
             target=self.backups/(datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%f')+'-manual.xlsx');shutil.copy2(self.path,target)
         return target
 
     def restore(self,name,actor,revision):
+        self.writable()
         if Path(name).name!=name or not name.endswith('.xlsx'):raise d.RuleError('نام پشتیبان معتبر نیست')
         candidate=self.backups/name
         if not candidate.exists():raise d.RuleError('پشتیبان پیدا نشد')

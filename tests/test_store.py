@@ -114,3 +114,40 @@ def test_fractional_rial_written_outside_service_not_truncated(store):
     post(store,kind='دریافت',amount='1000',bank='بانک آموزشی',reference='R1')
     w=load_workbook(store.path);w['Events']['J3']=1000.5;w.save(store.path)
     with pytest.raises(RuleError,match='صحیح'):store.read()
+
+def test_reversed_invoice_releases_weigh_for_replacement(store):
+    from app.reports import build_report
+    w=store.add_weigh({'date':'14050813','operation':'ورود','party':'باغدار نمونه','product':'پرتقال آموزشی','store':'انبار آموزشی','basket':'سبد آموزشی سفید','count':'0','gross':'100','reference':'REPLACE-W'},'test',fingerprint(store.path))
+    first=post(store,source_weigh=w['id'],reference='REPLACE-1')
+    assert not build_report(store.read())['unbilled_receipts']
+    store.reverse(first['id'],'تعویض سند اشتباه','test',fingerprint(store.path))
+    assert len(build_report(store.read())['unbilled_receipts'])==1
+    post(store,source_weigh=w['id'],reference='REPLACE-2')
+    assert not build_report(store.read())['unbilled_receipts']
+
+def move_row(path,sheet,source,target):
+    w=load_workbook(path);s=w[sheet]
+    for col in range(1,s.max_column+1):
+        s.cell(target,col,s.cell(source,col).value);s.cell(source,col).value=None
+    w.save(path)
+
+def test_cheque_transition_keeps_physical_row_after_gap(store):
+    r=store.add_check({'date':'14050813','due':'14050913','number':'GAP-CHECK','direction':'دریافتی','party':'خریدار نمونه','bank':'بانک آموزشی','amount':'1000'},'test',fingerprint(store.path))
+    move_row(store.path,'Checks',3,5)
+    store.check_state(r['id'],'وصول‌شده','test',fingerprint(store.path))
+    w=load_workbook(store.path)
+    assert w['Checks']['I5'].value=='وصول‌شده' and w['Checks']['I3'].value is None
+
+def test_import_commit_keeps_physical_row_after_gap(store):
+    content='date,kind,party,bank,amount,reference\n14050813,دریافت,خریدار نمونه,بانک آموزشی,1000,GAP-IMPORT\n'.encode()
+    batch=imports.preview(store,content,'bank.csv','test',fingerprint(store.path))
+    move_row(store.path,'Imports',3,5)
+    imports.commit(store,batch['id'],'test',fingerprint(store.path))
+    w=load_workbook(store.path)
+    assert w['Imports']['F5'].value=='ثبت‌شده' and w['Imports']['F3'].value is None
+    assert len(store.read()['Events'])==1
+
+def test_missing_cheque_amount_is_not_reported_as_zero(store):
+    store.add_check({'date':'14050813','due':'14050913','number':'MISSING-AMOUNT','direction':'دریافتی','party':'خریدار نمونه','bank':'بانک آموزشی','amount':'1000'},'test',fingerprint(store.path))
+    w=load_workbook(store.path);w['Checks']['G3']=None;w.save(store.path)
+    with pytest.raises(RuleError,match='صفر فرض نشد'):store.read()

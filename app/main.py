@@ -17,7 +17,7 @@ BASE=Path(__file__).resolve().parents[1]
 DEMO=os.environ.get('MAZANDASHT_DEMO')=='1'
 ROOT=Path(os.environ.get('MAZANDASHT_DATA',str(BASE/'runtime'/('demo' if DEMO else 'local'))))
 store=Store(ROOT,DEMO);security=Security(ROOT,DEMO)
-app=FastAPI(title='مازندشت | هسته اکسل',version='0.5.0',docs_url=None,redoc_url=None)
+app=FastAPI(title='مازندشت | هسته اکسل',version='0.6.0',docs_url=None,redoc_url=None)
 app.mount('/static',StaticFiles(directory=BASE/'static'),name='static')
 
 @app.middleware('http')
@@ -46,7 +46,7 @@ async def excel_locked(request,exc):return JSONResponse({'detail':'فایل اک
 @app.get('/')
 def index():return FileResponse(BASE/'static/index.html')
 @app.get('/api/health')
-def health():return {'ok':True,'version':'0.5.0','demo':DEMO,'today':jdatetime.date.today().strftime('%Y/%m/%d'),'status':'نسخه توسعه؛ تأیید تولید نشده'}
+def health():return {'ok':True,'version':'0.6.0','demo':DEMO,'today':jdatetime.date.today().strftime('%Y/%m/%d'),'status':'نسخه توسعه؛ تأیید تولید نشده'}
 @app.post('/api/login')
 async def login(request:Request):
     b=await request.json();token,user=security.login(str(b.get('name','')),str(b.get('password','')),request.client.host)
@@ -56,7 +56,7 @@ def logout(request:Request):
     security.sessions.pop(request.cookies.get('maz_session',''),None);r=JSONResponse({'ok':True});r.delete_cookie('maz_session');return r
 @app.get('/api/state')
 def state(request:Request):
-    user=security.require(request);data=store.read();data['user']={'name':user['name'],'role':user['role']};data['demo']=DEMO;data['check_transitions']={k:sorted(v) for k,v in CHECK_TRANSITIONS.items()}
+    user=security.require(request);data=store.read();data['user']={'name':user['name'],'role':user['role']};data['demo']=DEMO or any(r['key']=='mode' and r['value']=='نمونه آموزشی' for r in data['Info']);data['check_transitions']={k:sorted(v) for k,v in CHECK_TRANSITIONS.items()}
     if user['role']!='admin':data.pop('Audit',None)
     return data
 @app.post('/api/references/{sheet}')
@@ -109,3 +109,39 @@ async def users(request:Request):
 def insights(request:Request):
     security.require(request);s=store.read();net=sum(r['credit']-r['debit'] for r in s['trial'] if r['category']=='revenue')-sum(r['debit']-r['credit'] for r in s['trial'] if r['category']=='expense')
     return {'mode':'تحلیل قاعده‌محور محلی؛ مدل هوش مصنوعی متصل نیست','items':[{'title':'کنترل توازن','value':sum(x['balance'] for x in s['trial']),'unit':'ریال','source':'Journal → Trial'}, {'title':'سود خالص ثبت‌شده','value':net,'unit':'ریال','source':'Trial: درآمد − هزینه'}, {'title':'سبد فاقد تارای مرجع','value':sum(1 for x in s['Baskets'] if x['tare'] in [None,'']),'unit':'مورد','source':'Baskets.tare'}, {'title':'قرارداد نیازمند بازبینی','value':sum(1 for x in s['Deals'] if x['status']!='تأیید'),'unit':'مورد','source':'Deals.status'}]}
+
+@app.get('/reports')
+def reports_page():return FileResponse(BASE/'static/dashboard.html')
+
+@app.get('/api/catalog')
+def report_catalog(request:Request):
+    user=security.require(request);data=store.read()
+    return {'user':{'name':user['name'],'role':'viewer'},'read_only':True,'central':True,'demo':DEMO or any(r['key']=='mode' and r['value']=='نمونه آموزشی' for r in data['Info']),'parties':[p['name'] for p in data['Parties']],'source':'Mazandasht.xlsx','revision':data['revision']}
+
+@app.get('/api/reports')
+def report_data(request:Request,start:str|None=None,end:str|None=None,party:str|None=None):
+    from app.reports import build_report,exact_json
+    security.require(request);return exact_json(build_report(store.read(),start,end,party))
+
+@app.get('/api/provenance')
+def provenance(request:Request):
+    from openpyxl import load_workbook
+    from app.workbook import rows,SCHEMAS
+    from app.store import fingerprint
+    security.require(request,'admin')
+    with store.lock:
+        current=store.read();info={r['key']:r['value'] for r in current['Info']}
+        result={'source':str(store.path.resolve()),'revision':current['revision'],'mode':info.get('mode'),'demo':DEMO or info.get('mode')=='نمونه آموزشی','events':len(current['Events']),'weigh':len(current['Weigh']),'backup':None,'explanation':'پشتیبان XLSX، تصویر کامل دفتر در زمان ذخیره است؛ پشتیبان پیش از تغییر، عمداً تراکنش جدید بعدی را ندارد. فایل JSON نسخه‌های قبلی خودکار با این دفتر ادغام نشده است.'}
+        candidates=sorted(store.backups.glob('*.xlsx'),reverse=True)
+        if candidates:
+            p=candidates[0];w=load_workbook(p,read_only=True,data_only=False)
+            old=rows(w,'Events');a={e['id'] for e in old};b={e['id'] for e in current['Events']}
+            cw=load_workbook(store.path,read_only=True,data_only=False);raw=rows(cw,'Events');cw.close()
+            inputs=SCHEMAS['Events'][:19]
+            previous={e['id']:e for e in old};present={e['id']:e for e in raw}
+            text=lambda v:'' if v is None else str(v)
+            changed=[{'id':i,'fields':[k for k in inputs if text(previous[i].get(k))!=text(present[i].get(k))]} for i in sorted(a & b)]
+            changed=[e for e in changed if e['fields']]
+            result['backup']={'name':p.name,'sha256':fingerprint(p),'events':len(old),'same_bytes':fingerprint(p)==current['revision'],'new_event_ids':sorted(b-a),'removed_event_ids':sorted(a-b),'changed_events':changed}
+            w.close()
+    return result
