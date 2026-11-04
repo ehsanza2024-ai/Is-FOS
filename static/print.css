@@ -1,1 +1,57 @@
-@page{size:A4 landscape;margin:15mm}body{font:12px Tahoma,Arial;color:#183e2f;direction:rtl}h1{font-size:24px;margin:0}h2{font-size:17px;font-weight:normal}p,footer{font-size:10px;color:#66765b}table{border-collapse:collapse;width:100%;text-align:right;margin:20px 0}th,td{padding:10px;border:1px solid #d3dccb;font-size:11px}th{background:#edf1e6}thead{display:table-header-group}tr{break-inside:avoid}button,select,input,.toolbar,.tabs{display:none}footer{margin-top:25px;border-top:1px solid #ccd6c2;padding-top:15px}
+@page {
+  size: A4 landscape;
+  margin: 15mm;
+}
+body {
+  font:
+    12px Tahoma,
+    Arial;
+  color: #183e2f;
+  direction: rtl;
+}
+h1 {
+  font-size: 24px;
+  margin: 0;
+}
+h2 {
+  font-size: 17px;
+  font-weight: normal;
+}
+p,
+footer {
+  font-size: 10px;
+  color: #66765b;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  text-align: right;
+  margin: 20px 0;
+}
+th,
+td {
+  padding: 10px;
+  border: 1px solid #d3dccb;
+  font-size: 11px;
+}
+th {
+  background: #edf1e6;
+}
+thead {
+  display: table-header-group;
+}
+tr {
+  break-inside: avoid;
+}
+button,
+select,
+input,
+.toolbar,
+.tabs {
+  display: none;
+}
+footer {
+  margin-top: 25px;
+  border-top: 1px solid #ccd6c2;
+  padding-top: 15px;
+}

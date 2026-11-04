@@ -27,7 +27,8 @@ def pack(target,items,notice):
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('--private-sources',type=Path);p.add_argument('--repaired',type=Path);p.add_argument('--history',type=Path);p.add_argument('--output',type=Path,default=ROOT/'private'/'delivery');a=p.parse_args()
-    a.output.mkdir(parents=True,exist_ok=True);create(ROOT/'templates/Mazandasht-Blank.xlsx')
+    a.output.mkdir(parents=True,exist_ok=True)
+    if not (ROOT/'templates/Mazandasht-Blank.xlsx').exists():create(ROOT/'templates/Mazandasht-Blank.xlsx')
     software=[(f,'Software/'+str(f.relative_to(ROOT))) for f in public_files()]
     outputs=[pack(a.output/'Mazandasht-Software-0.5.0.zip',software,'نسخه توسعه ۰٫۵؛ بدون داده واقعی و بدون نصب‌کننده EXE. راه‌اندازی README و Guide را بخوانید. پذیرش مالی نهایی انجام نشده است.')]
     if a.private_sources:
