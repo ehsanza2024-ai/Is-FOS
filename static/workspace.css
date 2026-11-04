@@ -1,0 +1,230 @@
+@font-face {
+  font-family: Vazirmatn;
+  src: url("/static/fonts/vazirmatn-arabic-400-normal.woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: Vazirmatn;
+  src: url("/static/fonts/vazirmatn-arabic-700-normal.woff2");
+  font-weight: 700;
+  font-display: swap;
+}
+body,
+input,
+button,
+select,
+textarea {
+  font-family: Vazirmatn, Tahoma, sans-serif;
+}
+.workbench {
+  overflow: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-bottom: 12px;
+}
+.workbench > .panel {
+  flex-shrink: 0;
+  border-radius: 17px;
+}
+.team-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  padding: 20px;
+  gap: 13px;
+}
+.team-grid article {
+  background: linear-gradient(135deg, #f5f8ed, #eef3e4);
+  border: 1px solid #e0e8d2;
+  border-radius: 14px;
+  padding: 15px;
+}
+.team-grid article span {
+  font-size: 22px;
+  color: #728d50;
+  display: block;
+}
+.team-grid strong {
+  display: block;
+  font-size: 12px;
+  margin: 7px 0;
+}
+.team-grid p,
+.workbench-content p {
+  font-size: 11px;
+  color: #7c8b6c;
+  line-height: 2;
+}
+.workbench-content {
+  padding: 18px 22px;
+  font-size: 12px;
+  line-height: 2;
+  color: #627c50;
+}
+.workbench textarea,
+#importmapping {
+  min-height: 80px;
+  width: 100%;
+  padding: 12px;
+  border-radius: 9px;
+  background: #f9fbf5;
+  border: 1px solid #dce5cc;
+  color: #355337;
+  resize: vertical;
+  margin: 10px 0;
+}
+.workbench form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.workbench form textarea {
+  flex: 1 0 100%;
+}
+.workbench form input {
+  min-width: 0;
+}
+.advice-card {
+  padding: 16px;
+  border: 1px solid #dfe7d2;
+  background: #f4f8ed;
+  border-radius: 12px;
+  margin: 12px 0;
+}
+.evolution-list {
+  max-height: 250px;
+  overflow: auto;
+  margin: 18px 0;
+}
+.evolution-list article {
+  border-bottom: 1px solid #e7ecdf;
+  padding: 12px;
+}
+.evolution-list small {
+  margin: 0 12px;
+  color: #91a280;
+}
+.evolution-list p {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.quick-link {
+  border: 0;
+  background: none;
+  color: #5d7c43;
+  font: inherit;
+  cursor: pointer;
+  padding: 0 8px;
+}
+#quick-dialog {
+  max-width: 420px;
+  width: 90%;
+  padding: 25px;
+  border: 1px solid #d6e3c6;
+  border-radius: 18px;
+  color: #456a37;
+}
+#quick-dialog form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+#quick-dialog label {
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+#quick-dialog p {
+  font-size: 10px;
+  line-height: 2;
+  color: #8a967c;
+}
+.tabs {
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+.tabs .btn {
+  flex-shrink: 0;
+}
+.sidebar nav {
+  overflow-y: auto;
+  min-height: 0;
+}
+.formgrid label .quick-link {
+  font-size: 10px;
+}
+.workbench a {
+  color: #476e3d;
+}
+.tablewrap td .btn {
+  white-space: nowrap;
+}
+@media (max-width: 1100px) {
+  .team-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+@media (max-width: 650px) {
+  .team-grid {
+    grid-template-columns: 1fr 1fr;
+    padding: 12px;
+    gap: 8px;
+  }
+  .workbench-content {
+    padding: 14px;
+  }
+  .workbench form input {
+    width: 100%;
+  }
+}
+.unified-reports {
+  width: 100%;
+  height: 100%;
+  flex: 1;
+  min-height: 0;
+  border: 0;
+  border-radius: 17px;
+  background: #f5f6f1;
+}
+.dashcontents {
+  gap: 0;
+}
+.importarea {
+  max-height: 39vh;
+  overflow-y: auto;
+  flex-shrink: 0;
+  padding: 14px;
+  gap: 14px;
+}
+.importarea .dropzone {
+  padding: 14px;
+  gap: 8px;
+}
+.importarea .schema {
+  padding: 13px;
+}
+#importresult {
+  min-height: 90px;
+  flex: 1;
+}
+#importresult .toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: #fafcf5;
+  padding: 10px;
+  border-bottom: 1px solid #e0e7d5;
+  flex-wrap: wrap;
+}
+#importresult input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #3d6847;
+}
+
+/* Low-chroma operational semantics; withdrawals deliberately keep their base background. */
+tr.row-deposit>td{background:#eef0f2!important}tr.row-in>td{background:#eaf4ed!important}tr.row-out>td{background:#edf3fa!important}tr.row-transfer>td{background:#f0edfa!important}tr.row-basket>td{background:#f2f4e8!important}tr.row-return>td{background:#fff4e4!important}
